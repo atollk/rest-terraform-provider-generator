@@ -515,8 +515,8 @@ dependencies = [
  "clap",
  "minijinja",
  "roas",
+ "serde",
  "serde-saphyr",
- "serde_core",
  "serde_json",
 ]
 
