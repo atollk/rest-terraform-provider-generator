@@ -39,7 +39,7 @@ pub mod error {
 #[doc = "  \"description\": \"Configuration schema for REST API provider\","]
 #[doc = "  \"type\": \"object\","]
 #[doc = "  \"properties\": {"]
-#[doc = "    \"global\": {"]
+#[doc = "    \"global_defaults\": {"]
 #[doc = "      \"type\": \"object\","]
 #[doc = "      \"properties\": {"]
 #[doc = "        \"cert_file\": {"]
@@ -347,7 +347,7 @@ pub mod error {
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 pub struct RestApiProviderConfiguration {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
-    pub global: ::std::option::Option<RestApiProviderConfigurationGlobal>,
+    pub global_defaults: ::std::option::Option<RestApiProviderConfigurationGlobalDefaults>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub resources: ::std::option::Option<RestApiProviderConfigurationResources>,
 }
@@ -359,7 +359,7 @@ impl ::std::convert::From<&RestApiProviderConfiguration> for RestApiProviderConf
 impl ::std::default::Default for RestApiProviderConfiguration {
     fn default() -> Self {
         Self {
-            global: Default::default(),
+            global_defaults: Default::default(),
             resources: Default::default(),
         }
     }
@@ -369,7 +369,7 @@ impl RestApiProviderConfiguration {
         Default::default()
     }
 }
-#[doc = "`RestApiProviderConfigurationGlobal`"]
+#[doc = "`RestApiProviderConfigurationGlobalDefaults`"]
 #[doc = r""]
 #[doc = r" <details><summary>JSON schema</summary>"]
 #[doc = r""]
@@ -529,7 +529,7 @@ impl RestApiProviderConfiguration {
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
 #[serde(deny_unknown_fields)]
-pub struct RestApiProviderConfigurationGlobal {
+pub struct RestApiProviderConfigurationGlobalDefaults {
     #[doc = "When set with the key_file parameter, the provider will load a client certificate as a file for mTLS authentication."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub cert_file: ::std::option::Option<::std::string::String>,
@@ -540,7 +540,7 @@ pub struct RestApiProviderConfigurationGlobal {
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub copy_keys: ::std::vec::Vec<::std::string::String>,
     #[doc = "Defaults to POST. The HTTP method used to CREATE objects of this type on the API server."]
-    #[serde(default = "defaults::rest_api_provider_configuration_global_create_method")]
+    #[serde(default = "defaults::rest_api_provider_configuration_global_defaults_create_method")]
     pub create_method: ::std::string::String,
     #[doc = "Set this when the API returns the object created only on creation operations (POST). This is used by the provider to refresh internal data structures."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -549,7 +549,7 @@ pub struct RestApiProviderConfigurationGlobal {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub debug: ::std::option::Option<bool>,
     #[doc = "Defaults to DELETE. The HTTP method used to DELETE objects of this type on the API server."]
-    #[serde(default = "defaults::rest_api_provider_configuration_global_destroy_method")]
+    #[serde(default = "defaults::rest_api_provider_configuration_global_defaults_destroy_method")]
     pub destroy_method: ::std::string::String,
     #[doc = "A map of header names and values to set on all outbound requests. This is useful if you want to use a script via the 'external' provider or provide a pre-approved token or change Content-Type from application/json. If username and password are set and Authorization is one of the headers defined here, the BASIC auth credentials take precedence."]
     #[serde(
@@ -572,14 +572,14 @@ pub struct RestApiProviderConfigurationGlobal {
     #[doc = "Configuration for oauth client credential flow using the https://pkg.go.dev/golang.org/x/oauth2 implementation"]
     #[serde(default, skip_serializing_if = "::std::vec::Vec::is_empty")]
     pub oauth_client_credentials:
-        ::std::vec::Vec<RestApiProviderConfigurationGlobalOauthClientCredentialsItem>,
+        ::std::vec::Vec<RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem>,
     #[doc = "When set, will use this password for BASIC auth to the API."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub password: ::std::option::Option<::std::string::String>,
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub rate_limit: ::std::option::Option<f64>,
     #[doc = "Defaults to GET. The HTTP method used to READ objects of this type on the API server."]
-    #[serde(default = "defaults::rest_api_provider_configuration_global_read_method")]
+    #[serde(default = "defaults::rest_api_provider_configuration_global_defaults_read_method")]
     pub read_method: ::std::string::String,
     #[doc = "When set, the provider will load a root CA certificate as a file for mTLS authentication. This is useful when the API server is using a self-signed certificate and the client needs to trust it."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -593,7 +593,7 @@ pub struct RestApiProviderConfigurationGlobal {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub timeout: ::std::option::Option<f64>,
     #[doc = "Defaults to PUT. The HTTP method used to UPDATE objects of this type on the API server."]
-    #[serde(default = "defaults::rest_api_provider_configuration_global_update_method")]
+    #[serde(default = "defaults::rest_api_provider_configuration_global_defaults_update_method")]
     pub update_method: ::std::string::String,
     #[doc = "URI of the REST API endpoint. This serves as the base of all requests."]
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
@@ -611,23 +611,25 @@ pub struct RestApiProviderConfigurationGlobal {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub xssi_prefix: ::std::option::Option<::std::string::String>,
 }
-impl ::std::convert::From<&RestApiProviderConfigurationGlobal>
-    for RestApiProviderConfigurationGlobal
+impl ::std::convert::From<&RestApiProviderConfigurationGlobalDefaults>
+    for RestApiProviderConfigurationGlobalDefaults
 {
-    fn from(value: &RestApiProviderConfigurationGlobal) -> Self {
+    fn from(value: &RestApiProviderConfigurationGlobalDefaults) -> Self {
         value.clone()
     }
 }
-impl ::std::default::Default for RestApiProviderConfigurationGlobal {
+impl ::std::default::Default for RestApiProviderConfigurationGlobalDefaults {
     fn default() -> Self {
         Self {
             cert_file: Default::default(),
             cert_string: Default::default(),
             copy_keys: Default::default(),
-            create_method: defaults::rest_api_provider_configuration_global_create_method(),
+            create_method: defaults::rest_api_provider_configuration_global_defaults_create_method(
+            ),
             create_returns_object: Default::default(),
             debug: Default::default(),
-            destroy_method: defaults::rest_api_provider_configuration_global_destroy_method(),
+            destroy_method:
+                defaults::rest_api_provider_configuration_global_defaults_destroy_method(),
             headers: Default::default(),
             id_attribute: Default::default(),
             insecure: Default::default(),
@@ -636,12 +638,13 @@ impl ::std::default::Default for RestApiProviderConfigurationGlobal {
             oauth_client_credentials: Default::default(),
             password: Default::default(),
             rate_limit: Default::default(),
-            read_method: defaults::rest_api_provider_configuration_global_read_method(),
+            read_method: defaults::rest_api_provider_configuration_global_defaults_read_method(),
             root_ca_file: Default::default(),
             root_ca_string: Default::default(),
             test_path: Default::default(),
             timeout: Default::default(),
-            update_method: defaults::rest_api_provider_configuration_global_update_method(),
+            update_method: defaults::rest_api_provider_configuration_global_defaults_update_method(
+            ),
             uri: Default::default(),
             use_cookies: Default::default(),
             username: Default::default(),
@@ -650,8 +653,8 @@ impl ::std::default::Default for RestApiProviderConfigurationGlobal {
         }
     }
 }
-impl RestApiProviderConfigurationGlobal {
-    pub fn builder() -> builder::RestApiProviderConfigurationGlobal {
+impl RestApiProviderConfigurationGlobalDefaults {
+    pub fn builder() -> builder::RestApiProviderConfigurationGlobalDefaults {
         Default::default()
     }
 }
@@ -693,7 +696,7 @@ impl RestApiProviderConfigurationGlobal {
 #[doc = r" ```"]
 #[doc = r" </details>"]
 #[derive(:: serde :: Deserialize, :: serde :: Serialize, Clone, Debug)]
-pub struct RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
+pub struct RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem {
     #[doc = "Additional key/values to pass to the underlying Oauth client library (as EndpointParams)"]
     #[serde(default, skip_serializing_if = "::serde_json::Map::is_empty")]
     pub endpoint_params: ::serde_json::Map<::std::string::String, ::serde_json::Value>,
@@ -710,14 +713,16 @@ pub struct RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
     #[serde(default, skip_serializing_if = "::std::option::Option::is_none")]
     pub oauth_token_endpoint: ::std::option::Option<::std::string::String>,
 }
-impl ::std::convert::From<&RestApiProviderConfigurationGlobalOauthClientCredentialsItem>
-    for RestApiProviderConfigurationGlobalOauthClientCredentialsItem
+impl ::std::convert::From<&RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem>
+    for RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem
 {
-    fn from(value: &RestApiProviderConfigurationGlobalOauthClientCredentialsItem) -> Self {
+    fn from(value: &RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem) -> Self {
         value.clone()
     }
 }
-impl ::std::default::Default for RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
+impl ::std::default::Default
+    for RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem
+{
     fn default() -> Self {
         Self {
             endpoint_params: Default::default(),
@@ -728,8 +733,9 @@ impl ::std::default::Default for RestApiProviderConfigurationGlobalOauthClientCr
         }
     }
 }
-impl RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
-    pub fn builder() -> builder::RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
+impl RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem {
+    pub fn builder() -> builder::RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem
+    {
         Default::default()
     }
 }
@@ -1414,8 +1420,8 @@ impl RestApiProviderConfigurationResourcesExtraValueUpdate {
 pub mod builder {
     #[derive(Clone, Debug)]
     pub struct RestApiProviderConfiguration {
-        global: ::std::result::Result<
-            ::std::option::Option<super::RestApiProviderConfigurationGlobal>,
+        global_defaults: ::std::result::Result<
+            ::std::option::Option<super::RestApiProviderConfigurationGlobalDefaults>,
             ::std::string::String,
         >,
         resources: ::std::result::Result<
@@ -1426,29 +1432,29 @@ pub mod builder {
     impl ::std::default::Default for RestApiProviderConfiguration {
         fn default() -> Self {
             Self {
-                global: Ok(Default::default()),
+                global_defaults: Ok(Default::default()),
                 resources: Ok(Default::default()),
             }
         }
     }
     impl RestApiProviderConfiguration {
-        pub fn global<T>(mut self, value: T) -> Self
+        pub fn global_defaults<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<super::RestApiProviderConfigurationGlobal>,
-            >,
+                    ::std::option::Option<super::RestApiProviderConfigurationGlobalDefaults>,
+                >,
             T::Error: ::std::fmt::Display,
         {
-            self.global = value
+            self.global_defaults = value
                 .try_into()
-                .map_err(|e| format!("error converting supplied value for global: {}", e));
+                .map_err(|e| format!("error converting supplied value for global_defaults: {}", e));
             self
         }
         pub fn resources<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<super::RestApiProviderConfigurationResources>,
-            >,
+                    ::std::option::Option<super::RestApiProviderConfigurationResources>,
+                >,
             T::Error: ::std::fmt::Display,
         {
             self.resources = value
@@ -1463,7 +1469,7 @@ pub mod builder {
             value: RestApiProviderConfiguration,
         ) -> ::std::result::Result<Self, super::error::ConversionError> {
             Ok(Self {
-                global: value.global?,
+                global_defaults: value.global_defaults?,
                 resources: value.resources?,
             })
         }
@@ -1471,13 +1477,13 @@ pub mod builder {
     impl ::std::convert::From<super::RestApiProviderConfiguration> for RestApiProviderConfiguration {
         fn from(value: super::RestApiProviderConfiguration) -> Self {
             Self {
-                global: Ok(value.global),
+                global_defaults: Ok(value.global_defaults),
                 resources: Ok(value.resources),
             }
         }
     }
     #[derive(Clone, Debug)]
-    pub struct RestApiProviderConfigurationGlobal {
+    pub struct RestApiProviderConfigurationGlobalDefaults {
         cert_file: ::std::result::Result<
             ::std::option::Option<::std::string::String>,
             ::std::string::String,
@@ -1511,7 +1517,9 @@ pub mod builder {
             ::std::string::String,
         >,
         oauth_client_credentials: ::std::result::Result<
-            ::std::vec::Vec<super::RestApiProviderConfigurationGlobalOauthClientCredentialsItem>,
+            ::std::vec::Vec<
+                super::RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem,
+            >,
             ::std::string::String,
         >,
         password: ::std::result::Result<
@@ -1550,19 +1558,21 @@ pub mod builder {
             ::std::string::String,
         >,
     }
-    impl ::std::default::Default for RestApiProviderConfigurationGlobal {
+    impl ::std::default::Default for RestApiProviderConfigurationGlobalDefaults {
         fn default() -> Self {
             Self {
                 cert_file: Ok(Default::default()),
                 cert_string: Ok(Default::default()),
                 copy_keys: Ok(Default::default()),
                 create_method: Ok(
-                    super::defaults::rest_api_provider_configuration_global_create_method(),
+                    super::defaults::rest_api_provider_configuration_global_defaults_create_method(
+                    ),
                 ),
                 create_returns_object: Ok(Default::default()),
                 debug: Ok(Default::default()),
                 destroy_method: Ok(
-                    super::defaults::rest_api_provider_configuration_global_destroy_method(),
+                    super::defaults::rest_api_provider_configuration_global_defaults_destroy_method(
+                    ),
                 ),
                 headers: Ok(Default::default()),
                 id_attribute: Ok(Default::default()),
@@ -1573,14 +1583,15 @@ pub mod builder {
                 password: Ok(Default::default()),
                 rate_limit: Ok(Default::default()),
                 read_method: Ok(
-                    super::defaults::rest_api_provider_configuration_global_read_method(),
+                    super::defaults::rest_api_provider_configuration_global_defaults_read_method(),
                 ),
                 root_ca_file: Ok(Default::default()),
                 root_ca_string: Ok(Default::default()),
                 test_path: Ok(Default::default()),
                 timeout: Ok(Default::default()),
                 update_method: Ok(
-                    super::defaults::rest_api_provider_configuration_global_update_method(),
+                    super::defaults::rest_api_provider_configuration_global_defaults_update_method(
+                    ),
                 ),
                 uri: Ok(Default::default()),
                 use_cookies: Ok(Default::default()),
@@ -1590,7 +1601,7 @@ pub mod builder {
             }
         }
     }
-    impl RestApiProviderConfigurationGlobal {
+    impl RestApiProviderConfigurationGlobalDefaults {
         pub fn cert_file<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<::std::option::Option<::std::string::String>>,
@@ -1667,8 +1678,8 @@ pub mod builder {
         pub fn headers<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::collections::HashMap<::std::string::String, ::std::string::String>,
-            >,
+                    ::std::collections::HashMap<::std::string::String, ::std::string::String>,
+                >,
             T::Error: ::std::fmt::Display,
         {
             self.headers = value
@@ -1719,10 +1730,10 @@ pub mod builder {
         pub fn oauth_client_credentials<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::vec::Vec<
-                    super::RestApiProviderConfigurationGlobalOauthClientCredentialsItem,
+                    ::std::vec::Vec<
+                        super::RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem,
+                    >,
                 >,
-            >,
             T::Error: ::std::fmt::Display,
         {
             self.oauth_client_credentials = value.try_into().map_err(|e| {
@@ -1867,12 +1878,12 @@ pub mod builder {
             self
         }
     }
-    impl ::std::convert::TryFrom<RestApiProviderConfigurationGlobal>
-        for super::RestApiProviderConfigurationGlobal
+    impl ::std::convert::TryFrom<RestApiProviderConfigurationGlobalDefaults>
+        for super::RestApiProviderConfigurationGlobalDefaults
     {
         type Error = super::error::ConversionError;
         fn try_from(
-            value: RestApiProviderConfigurationGlobal,
+            value: RestApiProviderConfigurationGlobalDefaults,
         ) -> ::std::result::Result<Self, super::error::ConversionError> {
             Ok(Self {
                 cert_file: value.cert_file?,
@@ -1904,10 +1915,10 @@ pub mod builder {
             })
         }
     }
-    impl ::std::convert::From<super::RestApiProviderConfigurationGlobal>
-        for RestApiProviderConfigurationGlobal
+    impl ::std::convert::From<super::RestApiProviderConfigurationGlobalDefaults>
+        for RestApiProviderConfigurationGlobalDefaults
     {
-        fn from(value: super::RestApiProviderConfigurationGlobal) -> Self {
+        fn from(value: super::RestApiProviderConfigurationGlobalDefaults) -> Self {
             Self {
                 cert_file: Ok(value.cert_file),
                 cert_string: Ok(value.cert_string),
@@ -1939,7 +1950,7 @@ pub mod builder {
         }
     }
     #[derive(Clone, Debug)]
-    pub struct RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
+    pub struct RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem {
         endpoint_params: ::std::result::Result<
             ::serde_json::Map<::std::string::String, ::serde_json::Value>,
             ::std::string::String,
@@ -1959,7 +1970,9 @@ pub mod builder {
             ::std::string::String,
         >,
     }
-    impl ::std::default::Default for RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
+    impl ::std::default::Default
+        for RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem
+    {
         fn default() -> Self {
             Self {
                 endpoint_params: Ok(Default::default()),
@@ -1970,12 +1983,12 @@ pub mod builder {
             }
         }
     }
-    impl RestApiProviderConfigurationGlobalOauthClientCredentialsItem {
+    impl RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem {
         pub fn endpoint_params<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::serde_json::Map<::std::string::String, ::serde_json::Value>,
-            >,
+                    ::serde_json::Map<::std::string::String, ::serde_json::Value>,
+                >,
             T::Error: ::std::fmt::Display,
         {
             self.endpoint_params = value
@@ -2030,12 +2043,14 @@ pub mod builder {
             self
         }
     }
-    impl ::std::convert::TryFrom<RestApiProviderConfigurationGlobalOauthClientCredentialsItem>
-        for super::RestApiProviderConfigurationGlobalOauthClientCredentialsItem
+    impl
+        ::std::convert::TryFrom<
+            RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem,
+        > for super::RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem
     {
         type Error = super::error::ConversionError;
         fn try_from(
-            value: RestApiProviderConfigurationGlobalOauthClientCredentialsItem,
+            value: RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem,
         ) -> ::std::result::Result<Self, super::error::ConversionError> {
             Ok(Self {
                 endpoint_params: value.endpoint_params?,
@@ -2046,11 +2061,13 @@ pub mod builder {
             })
         }
     }
-    impl ::std::convert::From<super::RestApiProviderConfigurationGlobalOauthClientCredentialsItem>
-        for RestApiProviderConfigurationGlobalOauthClientCredentialsItem
+    impl
+        ::std::convert::From<
+            super::RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem,
+        > for RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem
     {
         fn from(
-            value: super::RestApiProviderConfigurationGlobalOauthClientCredentialsItem,
+            value: super::RestApiProviderConfigurationGlobalDefaultsOauthClientCredentialsItem,
         ) -> Self {
             Self {
                 endpoint_params: Ok(value.endpoint_params),
@@ -2112,11 +2129,11 @@ pub mod builder {
         pub fn extra<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::collections::HashMap<
-                    ::std::string::String,
-                    super::RestApiProviderConfigurationResourcesExtraValue,
+                    ::std::collections::HashMap<
+                        ::std::string::String,
+                        super::RestApiProviderConfigurationResourcesExtraValue,
+                    >,
                 >,
-            >,
             T::Error: ::std::fmt::Display,
         {
             self.extra = value
@@ -2210,8 +2227,10 @@ pub mod builder {
         pub fn create<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<super::RestApiProviderConfigurationResourcesExtraValueCreate>,
-            >,
+                    ::std::option::Option<
+                        super::RestApiProviderConfigurationResourcesExtraValueCreate,
+                    >,
+                >,
             T::Error: ::std::fmt::Display,
         {
             self.create = value
@@ -2232,10 +2251,10 @@ pub mod builder {
         pub fn destroy<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<
-                    super::RestApiProviderConfigurationResourcesExtraValueDestroy,
+                    ::std::option::Option<
+                        super::RestApiProviderConfigurationResourcesExtraValueDestroy,
+                    >,
                 >,
-            >,
             T::Error: ::std::fmt::Display,
         {
             self.destroy = value
@@ -2322,8 +2341,10 @@ pub mod builder {
         pub fn read<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<super::RestApiProviderConfigurationResourcesExtraValueRead>,
-            >,
+                    ::std::option::Option<
+                        super::RestApiProviderConfigurationResourcesExtraValueRead,
+                    >,
+                >,
             T::Error: ::std::fmt::Display,
         {
             self.read = value
@@ -2334,8 +2355,10 @@ pub mod builder {
         pub fn update<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<super::RestApiProviderConfigurationResourcesExtraValueUpdate>,
-            >,
+                    ::std::option::Option<
+                        super::RestApiProviderConfigurationResourcesExtraValueUpdate,
+                    >,
+                >,
             T::Error: ::std::fmt::Display,
         {
             self.update = value
@@ -2563,10 +2586,10 @@ pub mod builder {
         pub fn search<T>(mut self, value: T) -> Self
         where
             T: ::std::convert::TryInto<
-                ::std::option::Option<
-                    super::RestApiProviderConfigurationResourcesExtraValueReadSearch,
+                    ::std::option::Option<
+                        super::RestApiProviderConfigurationResourcesExtraValueReadSearch,
+                    >,
                 >,
-            >,
             T::Error: ::std::fmt::Display,
         {
             self.search = value
@@ -2779,16 +2802,20 @@ pub mod defaults {
     pub(super) fn default_bool<const V: bool>() -> bool {
         V
     }
-    pub(super) fn rest_api_provider_configuration_global_create_method() -> ::std::string::String {
+    pub(super) fn rest_api_provider_configuration_global_defaults_create_method()
+    -> ::std::string::String {
         "POST".to_string()
     }
-    pub(super) fn rest_api_provider_configuration_global_destroy_method() -> ::std::string::String {
+    pub(super) fn rest_api_provider_configuration_global_defaults_destroy_method()
+    -> ::std::string::String {
         "DELETE".to_string()
     }
-    pub(super) fn rest_api_provider_configuration_global_read_method() -> ::std::string::String {
+    pub(super) fn rest_api_provider_configuration_global_defaults_read_method()
+    -> ::std::string::String {
         "GET".to_string()
     }
-    pub(super) fn rest_api_provider_configuration_global_update_method() -> ::std::string::String {
+    pub(super) fn rest_api_provider_configuration_global_defaults_update_method()
+    -> ::std::string::String {
         "PUT".to_string()
     }
 }

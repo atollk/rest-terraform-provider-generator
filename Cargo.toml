@@ -5,8 +5,9 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
+askama = "0.14.0"
 clap = "4.5.53"
-minijinja = "2.14.0"
+maplit = "1.0.2"
 roas = { version = "0.6.0", features = ["v2", "v3_0", "v3_1"] }
 serde = "1.0.228"
 serde-saphyr = "0.0.11"

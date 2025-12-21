@@ -1,5 +1,5 @@
 $schema: "rest_api_provider_schema.json"
-global:
+global_defaults:
   uri: "petstore.com"
   id_attribute: "id"
   create_returns_object: true

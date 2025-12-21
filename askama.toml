@@ -1,0 +1,6 @@
+[general]
+dirs = ["src/code_generator/templates"]
+
+[[escaper]]
+path = "askama::filters::Text"
+extensions = ["mod", "go"]

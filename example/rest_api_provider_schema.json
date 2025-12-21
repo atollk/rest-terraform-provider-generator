@@ -4,7 +4,7 @@
   "title": "REST API Provider Configuration",
   "description": "Configuration schema for REST API provider",
   "properties": {
-    "global": {
+    "global_defaults": {
       "type": "object",
       "properties": {
         "uri": {
