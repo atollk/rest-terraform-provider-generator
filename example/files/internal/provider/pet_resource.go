@@ -1,11 +1,15 @@
 package provider
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"strconv"
+	"time"
 
-	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
@@ -13,7 +17,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/yourusername/terraform-provider-petstore/internal/client"
+	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -26,7 +30,9 @@ func NewPetResource() resource.Resource {
 
 // PetResource defines the resource implementation.
 type PetResource struct {
-	client *client.Client
+	baseURL    string
+	apiKey     string
+	httpClient *http.Client
 }
 
 // PetResourceModel describes the resource data model.
@@ -119,24 +125,81 @@ func (r *PetResource) Schema(ctx context.Context, req resource.SchemaRequest, re
 	}
 }
 
+// HTTPConfig holds HTTP client configuration
+type HTTPConfig struct {
+	BaseURL string
+	APIKey  string
+}
+
 func (r *PetResource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
 	}
 
-	client, ok := req.ProviderData.(*client.Client)
+	config, ok := req.ProviderData.(*HTTPConfig)
 
 	if !ok {
 		resp.Diagnostics.AddError(
 			"Unexpected Resource Configure Type",
-			fmt.Sprintf("Expected *client.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+			fmt.Sprintf("Expected *HTTPConfig, got: %T. Please report this issue to the provider developers.", req.ProviderData),
 		)
 
 		return
 	}
 
-	r.client = client
+	r.baseURL = config.BaseURL
+	r.apiKey = config.APIKey
+	r.httpClient = &http.Client{
+		Timeout: time.Second * 30,
+	}
+}
+
+// doRequest performs an HTTP request and returns the response body
+func (r *PetResource) doRequest(method, url string, body map[string]interface{}) (map[string]interface{}, error) {
+	var reqBody io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		reqBody = bytes.NewBuffer(data)
+	}
+
+	httpReq, err := http.NewRequest(method, url, reqBody)
+	if err != nil {
+		return nil, err
+	}
+
+	httpReq.Header.Set("Content-Type", "application/json")
+	if r.apiKey != "" {
+		httpReq.Header.Set("api_key", r.apiKey)
+	}
+
+	res, err := r.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer res.Body.Close()
+
+	responseBody, err := io.ReadAll(res.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.StatusCode < 200 || res.StatusCode >= 300 {
+		return nil, fmt.Errorf("API request failed with status %d: %s", res.StatusCode, string(responseBody))
+	}
+
+	var result map[string]interface{}
+	if len(responseBody) > 0 {
+		err = json.Unmarshal(responseBody, &result)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
 }
 
 func (r *PetResource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
@@ -149,9 +212,9 @@ func (r *PetResource) Create(ctx context.Context, req resource.CreateRequest, re
 		return
 	}
 
-	// Convert model to API request
-	pet := &client.Pet{
-		Name: data.Name.ValueString(),
+	// Build request body as a map
+	petData := map[string]interface{}{
+		"name": data.Name.ValueString(),
 	}
 
 	// Handle photo URLs
@@ -160,11 +223,11 @@ func (r *PetResource) Create(ctx context.Context, req resource.CreateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	pet.PhotoURLs = photoURLs
+	petData["photoUrls"] = photoURLs
 
 	// Handle status
 	if !data.Status.IsNull() {
-		pet.Status = data.Status.ValueString()
+		petData["status"] = data.Status.ValueString()
 	}
 
 	// Handle category
@@ -174,12 +237,13 @@ func (r *PetResource) Create(ctx context.Context, req resource.CreateRequest, re
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		pet.Category = &client.Category{
-			Name: category.Name.ValueString(),
+		categoryData := map[string]interface{}{
+			"name": category.Name.ValueString(),
 		}
 		if !category.ID.IsNull() {
-			pet.Category.ID = category.ID.ValueInt64()
+			categoryData["id"] = category.ID.ValueInt64()
 		}
+		petData["category"] = categoryData
 	}
 
 	// Handle tags
@@ -190,30 +254,35 @@ func (r *PetResource) Create(ctx context.Context, req resource.CreateRequest, re
 			return
 		}
 
-		pet.Tags = make([]client.Tag, len(tags))
+		tagsData := make([]map[string]interface{}, len(tags))
 		for i, tag := range tags {
-			pet.Tags[i] = client.Tag{
-				Name: tag.Name.ValueString(),
+			tagData := map[string]interface{}{
+				"name": tag.Name.ValueString(),
 			}
 			if !tag.ID.IsNull() {
-				pet.Tags[i].ID = tag.ID.ValueInt64()
+				tagData["id"] = tag.ID.ValueInt64()
 			}
+			tagsData[i] = tagData
 		}
+		petData["tags"] = tagsData
 	}
 
 	// Create the pet
-	createdPet, err := r.client.CreatePet(pet)
+	createdPet, err := r.doRequest("POST", fmt.Sprintf("%s/pet", r.baseURL), petData)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create pet, got error: %s", err))
 		return
 	}
 
 	// Update model with response data
-	data.ID = types.Int64Value(createdPet.ID)
-	data.Name = types.StringValue(createdPet.Name)
-	
-	if createdPet.Status != "" {
-		data.Status = types.StringValue(createdPet.Status)
+	if id, ok := createdPet["id"].(float64); ok {
+		data.ID = types.Int64Value(int64(id))
+	}
+	if name, ok := createdPet["name"].(string); ok {
+		data.Name = types.StringValue(name)
+	}
+	if status, ok := createdPet["status"].(string); ok && status != "" {
+		data.Status = types.StringValue(status)
 	}
 
 	// Save data into Terraform state
@@ -231,27 +300,35 @@ func (r *PetResource) Read(ctx context.Context, req resource.ReadRequest, resp *
 	}
 
 	// Get pet from API
-	pet, err := r.client.GetPet(data.ID.ValueInt64())
+	pet, err := r.doRequest("GET", fmt.Sprintf("%s/pet/%d", r.baseURL, data.ID.ValueInt64()), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read pet, got error: %s", err))
 		return
 	}
 
 	// Update model with fresh data
-	data.Name = types.StringValue(pet.Name)
-	data.Status = types.StringValue(pet.Status)
+	if name, ok := pet["name"].(string); ok {
+		data.Name = types.StringValue(name)
+	}
+	if status, ok := pet["status"].(string); ok {
+		data.Status = types.StringValue(status)
+	}
 
 	// Convert photo URLs
-	photoURLs := make([]types.String, len(pet.PhotoURLs))
-	for i, url := range pet.PhotoURLs {
-		photoURLs[i] = types.StringValue(url)
+	if photoURLsIface, ok := pet["photoUrls"].([]interface{}); ok {
+		photoURLs := make([]types.String, len(photoURLsIface))
+		for i, url := range photoURLsIface {
+			if urlStr, ok := url.(string); ok {
+				photoURLs[i] = types.StringValue(urlStr)
+			}
+		}
+		photoURLsList, diags := types.ListValueFrom(ctx, types.StringType, photoURLs)
+		resp.Diagnostics.Append(diags...)
+		if resp.Diagnostics.HasError() {
+			return
+		}
+		data.PhotoURLs = photoURLsList
 	}
-	photoURLsList, diags := types.ListValueFrom(ctx, types.StringType, photoURLs)
-	resp.Diagnostics.Append(diags...)
-	if resp.Diagnostics.HasError() {
-		return
-	}
-	data.PhotoURLs = photoURLsList
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -267,10 +344,10 @@ func (r *PetResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		return
 	}
 
-	// Convert model to API request
-	pet := &client.Pet{
-		ID:   data.ID.ValueInt64(),
-		Name: data.Name.ValueString(),
+	// Build request body as a map
+	petData := map[string]interface{}{
+		"id":   data.ID.ValueInt64(),
+		"name": data.Name.ValueString(),
 	}
 
 	// Handle photo URLs
@@ -279,11 +356,11 @@ func (r *PetResource) Update(ctx context.Context, req resource.UpdateRequest, re
 	if resp.Diagnostics.HasError() {
 		return
 	}
-	pet.PhotoURLs = photoURLs
+	petData["photoUrls"] = photoURLs
 
 	// Handle status
 	if !data.Status.IsNull() {
-		pet.Status = data.Status.ValueString()
+		petData["status"] = data.Status.ValueString()
 	}
 
 	// Handle category
@@ -293,12 +370,13 @@ func (r *PetResource) Update(ctx context.Context, req resource.UpdateRequest, re
 		if resp.Diagnostics.HasError() {
 			return
 		}
-		pet.Category = &client.Category{
-			Name: category.Name.ValueString(),
+		categoryData := map[string]interface{}{
+			"name": category.Name.ValueString(),
 		}
 		if !category.ID.IsNull() {
-			pet.Category.ID = category.ID.ValueInt64()
+			categoryData["id"] = category.ID.ValueInt64()
 		}
+		petData["category"] = categoryData
 	}
 
 	// Handle tags
@@ -309,27 +387,33 @@ func (r *PetResource) Update(ctx context.Context, req resource.UpdateRequest, re
 			return
 		}
 
-		pet.Tags = make([]client.Tag, len(tags))
+		tagsData := make([]map[string]interface{}, len(tags))
 		for i, tag := range tags {
-			pet.Tags[i] = client.Tag{
-				Name: tag.Name.ValueString(),
+			tagData := map[string]interface{}{
+				"name": tag.Name.ValueString(),
 			}
 			if !tag.ID.IsNull() {
-				pet.Tags[i].ID = tag.ID.ValueInt64()
+				tagData["id"] = tag.ID.ValueInt64()
 			}
+			tagsData[i] = tagData
 		}
+		petData["tags"] = tagsData
 	}
 
 	// Update the pet
-	updatedPet, err := r.client.UpdatePet(pet)
+	updatedPet, err := r.doRequest("PUT", fmt.Sprintf("%s/pet", r.baseURL), petData)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update pet, got error: %s", err))
 		return
 	}
 
 	// Update model with response data
-	data.Name = types.StringValue(updatedPet.Name)
-	data.Status = types.StringValue(updatedPet.Status)
+	if name, ok := updatedPet["name"].(string); ok {
+		data.Name = types.StringValue(name)
+	}
+	if status, ok := updatedPet["status"].(string); ok {
+		data.Status = types.StringValue(status)
+	}
 
 	// Save updated data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -346,7 +430,7 @@ func (r *PetResource) Delete(ctx context.Context, req resource.DeleteRequest, re
 	}
 
 	// Delete the pet
-	err := r.client.DeletePet(data.ID.ValueInt64())
+	_, err := r.doRequest("DELETE", fmt.Sprintf("%s/pet/%d", r.baseURL, data.ID.ValueInt64()), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete pet, got error: %s", err))
 		return
