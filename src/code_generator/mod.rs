@@ -1,6 +1,7 @@
 use crate::oas_parser::parser::OASVersionedSpec;
 use crate::provider_spec::rest_api_provider_schema;
 use std::path::Path;
+use crate::code_generator::templates::ResourceInfo;
 
 mod templates;
 
@@ -9,22 +10,32 @@ pub fn render_spec(
     provider_spec: &rest_api_provider_schema::RestApiProviderConfiguration,
     api_spec: &OASVersionedSpec,
 ) -> anyhow::Result<()> {
+    let provider_info = templates::ProviderInfo {
+        name_kebab: "petstore".to_string(),
+        author: "foo".to_string(),
+        name_caps: "PETSTORE".to_string(),
+    };
+    let resources = vec![
+        ResourceInfo {
+            name_snake: "res_one".to_string(),
+            name_pascal: "ResOne".to_string(),
+        }
+    ];
+    let data_sources = vec![];
+
     let makefile_template = templates::MakefileTemplate {
-        provider_name: "petstore",
-        provider_author: "foo",
+        provider_info: &provider_info,
     };
     let main_go_template = templates::MainGoTemplate {
-        provider_name: "petstore",
-        provider_author: "foo",
+        provider_info: &provider_info,
     };
     let go_mod_template = templates::GoModTemplate {
-        provider_name: "petstore",
-        provider_author: "foo",
+        provider_info: &provider_info,
     };
     let provider_go_template = templates::ProviderGoTemplate {
-        provider_name: "petstore",
-        provider_author: "foo",
-        provider_name_caps: "PETSTORE",
+        provider_info: &provider_info,
+        resources: &resources,
+        data_sources: &data_sources,
     };
     let template_files = maplit::hashmap! {
         "Makefile" => &makefile_template as &dyn askama::DynTemplate,

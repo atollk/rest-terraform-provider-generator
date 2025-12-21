@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/{{provider_author}}/terraform-provider-{{provider_name}}/internal/client"
+	"github.com/{{provider_info.author}}/terraform-provider-{{provider_info.name_kebab}}/internal/client"
 )
 
 // Ensure Provider satisfies various provider interfaces.
@@ -31,7 +31,7 @@ type ProviderModel struct {
 }
 
 func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "{{provider_name}}"
+	resp.TypeName = "{{provider_info.name_kebab}}"
 	resp.Version = p.version
 }
 
@@ -39,11 +39,11 @@ func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp 
 	resp.Schema = schema.Schema{
 		Attributes: map[string]schema.Attribute{
 			"base_url": schema.StringAttribute{
-				MarkdownDescription: "The base URL for the Petstore API. May also be provided via {{provider_name_caps}}_BASE_URL environment variable.",
+				MarkdownDescription: "The base URL for the Petstore API. May also be provided via {{provider_info.name_caps}}_BASE_URL environment variable.",
 				Optional:            true,
 			},
 			"api_key": schema.StringAttribute{
-				MarkdownDescription: "The API key for authentication. May also be provided via {{provider_name_caps}}_API_KEY environment variable.",
+				MarkdownDescription: "The API key for authentication. May also be provided via {{provider_info.name_caps}}_API_KEY environment variable.",
 				Optional:            true,
 				Sensitive:           true,
 			},
@@ -66,18 +66,18 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	if data.BaseURL.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("base_url"),
-			"Unknown {{provider_name}} API Base URL",
-			"The provider cannot create the {{provider_name}} API client as there is an unknown configuration value for the {{provider_name}} API base URL. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the {{provider_name_caps}}_BASE_URL environment variable.",
+			"Unknown {{provider_info.name_kebab}} API Base URL",
+			"The provider cannot create the {{provider_info.name_kebab}} API client as there is an unknown configuration value for the {{provider_info.name_kebab}} API base URL. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the {{provider_info.name_caps}}_BASE_URL environment variable.",
 		)
 	}
 
 	if data.APIKey.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("api_key"),
-			"Unknown {{provider_name}} API Key",
-			"The provider cannot create the {{provider_name}} API client as there is an unknown configuration value for the {{provider_name}} API key. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the {{provider_name_caps}}_API_KEY environment variable.",
+			"Unknown {{provider_info.name_kebab}} API Key",
+			"The provider cannot create the {{provider_info.name_kebab}} API client as there is an unknown configuration value for the {{provider_info.name_kebab}} API key. "+
+				"Either target apply the source of the value first, set the value statically in the configuration, or use the {{provider_info.name_caps}}_API_KEY environment variable.",
 		)
 	}
 
@@ -88,8 +88,8 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	// Default values to environment variables, but override
 	// with Terraform configuration value if set.
 
-	baseURL := os.Getenv("{{provider_name_caps}}_BASE_URL")
-	apiKey := os.Getenv("{{provider_name_caps}}_API_KEY")
+	baseURL := os.Getenv("{{provider_info.name_caps}}_BASE_URL")
+	apiKey := os.Getenv("{{provider_info.name_caps}}_API_KEY")
 
 	if !data.BaseURL.IsNull() {
 		baseURL = data.BaseURL.ValueString()
@@ -105,9 +105,9 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	if baseURL == "" {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("base_url"),
-			"Missing {{provider_name}} API Base URL",
-			"The provider cannot create the {{provider_name}} API client as there is a missing or empty value for the {{provider_name}} API base URL. "+
-				"Set the base_url value in the configuration or use the {{provider_name_caps}}_BASE_URL environment variable. "+
+			"Missing {{provider_info.name_kebab}} API Base URL",
+			"The provider cannot create the {{provider_info.name_kebab}} API client as there is a missing or empty value for the {{provider_info.name_kebab}} API base URL. "+
+				"Set the base_url value in the configuration or use the {{provider_info.name_caps}}_BASE_URL environment variable. "+
 				"If either is already set, ensure the value is not empty.",
 		)
 	}
@@ -116,10 +116,10 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 		return
 	}
 
-	// Create a new {{provider_name}} client using the configuration values
+	// Create a new {{provider_info.name_kebab}} client using the configuration values
 	client := client.NewClient(baseURL, apiKey)
 
-	// Make the {{provider_name}} client available during DataSource and Resource
+	// Make the {{provider_info.name_kebab}} client available during DataSource and Resource
 	// type Configure methods.
 	resp.DataSourceData = client
 	resp.ResourceData = client
@@ -127,17 +127,17 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 
 func (p *Provider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
-		NewPetResource,
-		NewUserResource,
-		NewOrderResource,
+	{% for resource in resources %}
+	    New{{resource.name_pascal}},
+    {% endfor %}
 	}
 }
 
 func (p *Provider) DataSources(ctx context.Context) []func() datasource.DataSource {
 	return []func() datasource.DataSource{
-		NewPetDataSource,
-		NewUserDataSource,
-		NewOrderDataSource,
+	{% for data_source in data_sources %}
+	    New{{data_source.name_pascal}},
+    {% endfor %}
 	}
 }
 

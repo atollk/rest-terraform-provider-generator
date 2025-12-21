@@ -1,4 +1,4 @@
-module github.com/{{provider_author}}/terraform-provider-{{provider_name}}
+module github.com/{{provider_info.author}}/terraform-provider-{{provider_info.name_kebab}}
 
 go 1.25.5
 

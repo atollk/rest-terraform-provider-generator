@@ -7,12 +7,12 @@ init:
 
 # Build the provider (downloads deps first)
 build: init
-	go build -o terraform-provider-{{provider_name}}
+	go build -o terraform-provider-{{provider_info.name_kebab}}
 
 # Install the provider locally for testing
 install: build
-	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/{{provider_author}}/{{provider_name}}/0.1.0/$$(go env GOOS)_$$(go env GOARCH)
-	cp terraform-provider-{{provider_name}} ~/.terraform.d/plugins/registry.terraform.io/{{provider_author}}/{{provider_name}}/0.1.0/$$(go env GOOS)_$$(go env GOARCH)/
+	mkdir -p ~/.terraform.d/plugins/registry.terraform.io/{{provider_info.author}}/{{provider_info.name_kebab}}/0.1.0/$$(go env GOOS)_$$(go env GOARCH)
+	cp terraform-provider-{{provider_info.name_kebab}} ~/.terraform.d/plugins/registry.terraform.io/{{provider_info.author}}/{{provider_info.name_kebab}}/0.1.0/$$(go env GOOS)_$$(go env GOARCH)/
 
 # Run tests
 test:
@@ -20,7 +20,7 @@ test:
 
 # Clean build artifacts
 clean:
-	rm -f terraform-provider-{{provider_name}}
+	rm -f terraform-provider-{{provider_info.name_kebab}}
 	go clean
 
 # Format code
