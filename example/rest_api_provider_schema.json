@@ -271,6 +271,11 @@
             "type": "boolean",
             "description": "Whether to emit verbose debug output while working with the API object on the server."
           },
+          "force_recreate": {
+            "type": "boolean",
+            "default": false,
+            "description": "If set to true, any changes to the resource will recreate it instead of updating."
+          },
           "force_new": {
             "type": "array",
             "items": {

@@ -4,55 +4,21 @@ global_defaults:
   id_attribute: "id"
   create_returns_object: true
   write_returns_object: true
+  create_method: POST
+  destroy_method: DELETE
+  update_method: PUT
+  read_method: GET
 
 resources:
   pet:
     path: "/pet"
-    id_attribute: "id"
-    create:
-      method: "POST"
-      path: "/pet"
-    read:
-      method: "GET"
-      path: "/pet/{id}"
-    update:
-      method: "PUT"
-      path: "/pet"
-    destroy:
-      method: "DELETE"
-      path: "/pet/{id}"
-    force_new:
-      - "id"
+    force_recreate: true
 
   order:
     path: "/store/order"
-    id_attribute: "id"
-    create:
-      method: "POST"
-      path: "/store/order"
-    read:
-      method: "GET"
-      path: "/store/order/{id}"
-    destroy:
-      method: "DELETE"
-      path: "/store/order/{id}"
-    force_new:
-      - "id"
 
   user:
     path: "/user"
     id_attribute: "username"
-    create:
-      method: "POST"
-      path: "/user"
-    read:
-      method: "GET"
-      path: "/user/{id}"
-    update:
-      method: "PUT"
-      path: "/user/{id}"
-    destroy:
-      method: "DELETE"
-      path: "/user/{id}"
     force_new:
       - "username"
