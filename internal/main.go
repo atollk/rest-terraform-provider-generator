@@ -1,9 +1,9 @@
 package main
 
 import (
+	"atollk/terraform-api-provider-generator/internal/code_generator"
 	"atollk/terraform-api-provider-generator/internal/oas_parser"
 	"atollk/terraform-api-provider-generator/internal/provider_spec"
-	"atollk/terraform-api-provider-generator/internal/templates"
 	"log"
 )
 

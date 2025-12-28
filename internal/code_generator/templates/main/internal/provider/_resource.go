@@ -21,46 +21,37 @@ import (
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &{{resource_info.name_pascal}}Resource{}
-var _ resource.ResourceWithImportState = &{{resource_info.name_pascal}}Resource{}
+var _ resource.Resource = &{{.ResourceInfo.NamePascal}}Resource{}
+var _ resource.ResourceWithImportState = &{{.ResourceInfo.NamePascal}}Resource{}
 
-func New{{resource_info.name_pascal}}Resource() resource.Resource {
-	return &{{resource_info.name_pascal}}Resource{}
+func New{{.ResourceInfo.NamePascal}}Resource() resource.Resource {
+	return &{{.ResourceInfo.NamePascal}}Resource{}
 }
 
-// {{resource_info.name_pascal}}Resource defines the resource implementation.
-type {{resource_info.name_pascal}}Resource struct {
+// {{.ResourceInfo.NamePascal}}Resource defines the resource implementation.
+type {{.ResourceInfo.NamePascal}}Resource struct {
 	baseURL    string
 	apiKey     string
 	httpClient *http.Client
 }
 
-// {{resource_info.name_pascal}}ResourceModel describes the resource data model.
-type {{resource_info.name_pascal}}ResourceModel struct {
+// {{.ResourceInfo.NamePascal}}ResourceModel describes the resource data model.
+type {{.ResourceInfo.NamePascal}}ResourceModel struct {
     // TODO
 	ID        types.Int64  `tfsdk:"id"`
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
-	resp.TypeName = req.ProviderTypeName + "_pet"
+func (r *{{.ResourceInfo.NamePascal}}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+	resp.TypeName = req.ProviderTypeName + "_{{.ResourceInfo.NameSnake}}"
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *{{.ResourceInfo.NamePascal}}Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
-		MarkdownDescription: "{{resource_info.name_pascal}} resource",
+		MarkdownDescription: "{{.ResourceInfo.NamePascal}} resource",
 
 		Attributes: map[string]schema.Attribute{
-        {% for resource in resources %}
-            New{{resource.name_pascal}},
-        {% endfor %}
-			"id": schema.Int64Attribute{
-				Computed:            true,
-				MarkdownDescription: "{{resource_info.name_pascal}} identifier",
-				PlanModifiers: []planmodifier.Int64{
-					int64planmodifier.UseStateForUnknown(),
-				},
-			},
+			{{call .RenderAttributeDefinitions}}
 		},
 	}
 }
@@ -71,7 +62,7 @@ type HTTPConfig struct {
 	APIKey  string
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *{{.ResourceInfo.NamePascal}}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -96,7 +87,7 @@ func (r *{{resource_info.name_pascal}}Resource) Configure(ctx context.Context, r
 }
 
 // doRequest performs an HTTP request and returns the response body
-func (r *{{resource_info.name_pascal}}Resource) doRequest(method, url string, body map[string]interface{}) (map[string]interface{}, error) {
+func (r *{{.ResourceInfo.NamePascal}}Resource) doRequest(method, url string, body map[string]interface{}) (map[string]interface{}, error) {
 	var reqBody io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -142,8 +133,8 @@ func (r *{{resource_info.name_pascal}}Resource) doRequest(method, url string, bo
 	return result, nil
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data {{resource_info.name_pascal}}ResourceModel
+func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data {{.ResourceInfo.NamePascal}}ResourceModel
 
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -181,8 +172,8 @@ func (r *{{resource_info.name_pascal}}Resource) Create(ctx context.Context, req 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data {{resource_info.name_pascal}}ResourceModel
+func (r *{{.ResourceInfo.NamePascal}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data {{.ResourceInfo.NamePascal}}ResourceModel
 
 	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
@@ -226,8 +217,8 @@ func (r *{{resource_info.name_pascal}}Resource) Read(ctx context.Context, req re
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data {{resource_info.name_pascal}}ResourceModel
+func (r *{{.ResourceInfo.NamePascal}}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data {{.ResourceInfo.NamePascal}}ResourceModel
 
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -263,8 +254,8 @@ func (r *{{resource_info.name_pascal}}Resource) Update(ctx context.Context, req 
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{resource_info.name_pascal}}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data {{resource_info.name_pascal}}ResourceModel
+func (r *{{.ResourceInfo.NamePascal}}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data {{.ResourceInfo.NamePascal}}ResourceModel
 
 	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
@@ -281,7 +272,7 @@ func (r *{{resource_info.name_pascal}}Resource) Delete(ctx context.Context, req 
 	}
 }
 
-func (r *{{resource_info.name_pascal}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+func (r *{{.ResourceInfo.NamePascal}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
 	// Parse the import ID as an integer
 	id, err := strconv.ParseInt(req.ID, 10, 64)
 	if err != nil {

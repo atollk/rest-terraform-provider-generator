@@ -20,7 +20,7 @@ func RenderSpec(
 		NameCaps:  "PETSTORE",
 	}
 	resources := []ResourceInfo{
-		{NameSnake: "res_one", NamePascal: "ResOne"},
+		{NameSnake: "res_one", NamePascal: "ResOne", ResourceSpec: provider_spec.Resources.OtherProps["pet"], OADoc: api_spec},
 	}
 	var dataSources []DataSourceInfo
 
@@ -31,15 +31,18 @@ func RenderSpec(
 		getGoModTemplate(&providerInfo),
 		getProviderGoTemplate(&providerInfo, resources, dataSources),
 	}
+	for _, resource := range resources {
+		templates = append(templates, getResourceGoTemplate(&providerInfo, &resource))
+	}
 
 	// Write out files
 	for _, renderer := range templates {
-		completePath := path.Join(output_path, renderer.name)
+		completePath := path.Join(output_path, renderer.Name())
 		err := os.MkdirAll(path.Dir(completePath), os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("cannot create directories: %w", err)
 		}
-		output, err := renderer.render()
+		output, err := renderer.Render()
 		if err != nil {
 			return fmt.Errorf("cannot execute template: %w", err)
 		}
