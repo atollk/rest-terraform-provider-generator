@@ -1,0 +1,1 @@
+ go run github.com/atombender/go-jsonschema src/provider_spec/rest_api_provider_schema.json -p provider_spec > src/provider_spec/provider_schema.go
