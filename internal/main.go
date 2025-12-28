@@ -1,9 +1,9 @@
 package main
 
 import (
-	"atollk/terraform-api-provider-generator/src/oas_parser"
-	"atollk/terraform-api-provider-generator/src/provider_spec"
-	"atollk/terraform-api-provider-generator/src/templates"
+	"atollk/terraform-api-provider-generator/internal/oas_parser"
+	"atollk/terraform-api-provider-generator/internal/provider_spec"
+	"atollk/terraform-api-provider-generator/internal/templates"
 	"log"
 )
 
@@ -16,7 +16,7 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
-	err = templates.RenderSpec("example/out", providerSpec, oadoc)
+	err = code_generator.RenderSpec("example/out", providerSpec, oadoc)
 	if err != nil {
 		log.Panic(err)
 	}
