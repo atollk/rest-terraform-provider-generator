@@ -6,6 +6,7 @@
   "properties": {
     "global_defaults": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "uri": {
           "type": "string",
@@ -152,8 +153,7 @@
           "type": "string",
           "description": "Trim the xssi prefix from response string, if present, before parsing."
         }
-      },
-      "additionalProperties": false
+      }
     },
     "resources": {
       "type": "object",

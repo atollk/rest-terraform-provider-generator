@@ -1,4 +1,4 @@
-$schema: "rest_api_provider_schema.json"
+$schema: "../src/provider_spec/rest_api_provider_schema.json"
 global_defaults:
   uri: "petstore.com"
   id_attribute: "id"

@@ -1,1 +1,3 @@
- go run github.com/atombender/go-jsonschema src/provider_spec/rest_api_provider_schema.json -p provider_spec > src/provider_spec/provider_schema.go
+OUTFILE=src/provider_spec/provider_schema.go
+go run github.com/RyoJerryYu/go-jsonschema/cmd/jsonschemagen src/provider_spec/rest_api_provider_schema.json --with-additional-properties -n provider_spec > $OUTFILE
+sed -i 's/`json:"-"`/`json:",inline"`/' $OUTFILE
