@@ -38,7 +38,7 @@ type {{.ResourceInfo.NamePascal}}Resource struct {
 
 // {{.ResourceInfo.NamePascal}}ResourceModel describes the resource data model.
 type {{.ResourceInfo.NamePascal}}ResourceModel struct {
-    {{.renderModelDataFields}}
+    {{.RenderModelDataFields}}
 }
 
 func (r *{{.ResourceInfo.NamePascal}}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -151,20 +151,20 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req r
 	// TODO: fill resourceData
 
 	// Create the resource
-	createdResource, err := r.doRequest("POST", fmt.Sprintf("%s/pet", r.baseURL), petData)
+	createdResource, err := r.doRequest("POST", fmt.Sprintf("%s/pet", r.baseURL), resourceData)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create pet, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create resource, got error: %s", err))
 		return
 	}
 
 	// Update model with response data
-	if id, ok := createdPet["id"].(float64); ok {
+	if id, ok := createdResource["id"].(float64); ok {
 		data.ID = types.Int64Value(int64(id))
 	}
-	if name, ok := createdPet["name"].(string); ok {
+	if name, ok := createdResource["name"].(string); ok {
 		data.Name = types.StringValue(name)
 	}
-	if status, ok := createdPet["status"].(string); ok && status != "" {
+	if status, ok := createdResource["status"].(string); ok && status != "" {
 		data.Status = types.StringValue(status)
 	}
 

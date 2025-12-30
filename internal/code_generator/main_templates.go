@@ -5,25 +5,50 @@ import (
 	"atollk/terraform-api-provider-generator/internal/provider_spec"
 	"bytes"
 	_ "embed"
+	"strings"
 	"text/template"
+
+	"github.com/danielgtaylor/casing"
 )
 
 type ProviderInfo struct {
-	Author    string
-	NameKebab string
-	NameCaps  string
+	Name         string
+	Author       string
+	SpecDefaults *provider_spec.GlobalDefaults
+}
+
+func (p *ProviderInfo) NameKebab() string {
+	return casing.Kebab(p.Name)
+}
+
+func (p *ProviderInfo) NameCaps() string {
+	return strings.ToUpper(p.NameKebab())
 }
 
 type ResourceInfo struct {
-	NameSnake    string
-	NamePascal   string
+	Name         string
 	ResourceSpec provider_spec.ResourceSchema
 	OADoc        oas_parser.OADoc
 }
 
+func (r *ResourceInfo) NameSnake() string {
+	return casing.Snake(r.Name)
+}
+
+func (r *ResourceInfo) NamePascal() string {
+	return casing.Camel(r.Name)
+}
+
 type DataSourceInfo struct {
-	NameSnake  string
-	NamePascal string
+	Name string
+}
+
+func (d *DataSourceInfo) NameSnake() string {
+	return casing.Snake(d.Name)
+}
+
+func (d *DataSourceInfo) NamePascal() string {
+	return casing.Camel(d.Name)
 }
 
 // -------------------------------------------------------------------------------------------------

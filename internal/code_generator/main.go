@@ -9,18 +9,22 @@ import (
 )
 
 func RenderSpec(
-	output_path string,
-	provider_spec provider_spec.RESTAPIProviderConfiguration,
-	api_spec oas_parser.OADoc,
+	outputPath string,
+	providerSpec provider_spec.RESTAPIProviderConfiguration,
+	apiSpec oas_parser.OADoc,
 ) error {
 	// Prepare input data
 	providerInfo := ProviderInfo{
-		Author:    "foo",
-		NameKebab: "petstore",
-		NameCaps:  "PETSTORE",
+		Author:       "foo",
+		Name:         "pet_store",
+		SpecDefaults: providerSpec.GlobalDefaults,
 	}
 	resources := []ResourceInfo{
-		{NameSnake: "res_one", NamePascal: "ResOne", ResourceSpec: provider_spec.Resources.OtherProps["pet"], OADoc: api_spec},
+		{
+			Name:         "res_one",
+			ResourceSpec: providerSpec.Resources.OtherProps["pet"],
+			OADoc:        apiSpec,
+		},
 	}
 	var dataSources []DataSourceInfo
 
@@ -30,7 +34,7 @@ func RenderSpec(
 		getMainGoTemplate(&providerInfo),
 		getGoModTemplate(&providerInfo),
 		getSharedGoTemplate(),
-		getOasJsonTemplate(api_spec),
+		getOasJsonTemplate(apiSpec),
 		getProviderGoTemplate(&providerInfo, resources, dataSources),
 	}
 	for _, resource := range resources {
@@ -39,7 +43,7 @@ func RenderSpec(
 
 	// Write out files
 	for _, renderer := range templates {
-		completePath := path.Join(output_path, renderer.Name())
+		completePath := path.Join(outputPath, renderer.Name())
 		err := os.MkdirAll(path.Dir(completePath), os.ModePerm)
 		if err != nil {
 			return fmt.Errorf("cannot create directories: %w", err)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/danielgtaylor/casing"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
-	"github.com/pb33f/libopenapi/orderedmap"
 )
 
 //go:embed templates/main/internal/provider/resource.go.tmpl
@@ -24,27 +23,56 @@ func (r *resourceTemplateRenderer) Name() string {
 	return r.name
 }
 
-func (r *resourceTemplateRenderer) findRequestBodyProperties() (*orderedmap.Map[string, *base.SchemaProxy], error) {
-	path, present := r.ResourceInfo.OADoc.Model.Paths.PathItems.Get(r.ResourceInfo.ResourceSpec.Path)
+func (r *resourceTemplateRenderer) getOperationBodies(path string, operation string) (*base.Schema, *base.Schema, error) {
+	pathObject, present := r.ResourceInfo.OADoc.Model.Paths.PathItems.Get(path)
 	if !present {
-		return nil, fmt.Errorf("could not find expected path %v", r.ResourceInfo.ResourceSpec.Path)
+		return nil, nil, fmt.Errorf("could not find expected path %v", path)
 	}
-	op, present := path.GetOperations().Get("post")
+	op, present := pathObject.GetOperations().Get(strings.ToLower(operation))
 	if !present {
-		return nil, fmt.Errorf("could not find expected operation %v", "POST")
+		return nil, nil, fmt.Errorf("could not find expected operation %v", operation)
 	}
-	content, present := op.RequestBody.Content.Get("application/json")
+	requestContent, present := op.RequestBody.Content.Get("application/json")
 	if !present {
-		return nil, fmt.Errorf("could not find expected content type %v", "application/json")
+		return nil, nil, fmt.Errorf("could not find expected request content type %v", "application/json")
 	}
-	schema := content.Schema.Schema()
-	if schema == nil {
-		return nil, fmt.Errorf("could not build schema: %w", content.Schema.GetBuildError())
+	responseContent, present := op.RequestBody.Content.Get("application/json")
+	if !present {
+		return nil, nil, fmt.Errorf("could not find expected response content type %v", "application/json")
 	}
-	if !slices.Contains(schema.Type, "object") {
-		return nil, fmt.Errorf("only object types are supported for request bodies")
+	requestSchema := requestContent.Schema.Schema()
+	if requestSchema == nil {
+		return nil, nil, fmt.Errorf("could not build schema: %w", requestContent.Schema.GetBuildError())
 	}
-	return schema.Properties, nil
+	responseSchema := responseContent.Schema.Schema()
+	if responseSchema == nil {
+		return nil, nil, fmt.Errorf("could not build schema: %w", responseContent.Schema.GetBuildError())
+	}
+	return requestSchema, responseSchema, nil
+}
+
+func (r *resourceTemplateRenderer) getCreateBodies() (*base.Schema, *base.Schema, error) {
+	path := r.ResourceInfo.ResourceSpec.Path
+	if path == "" {
+		path = r.ResourceInfo.ResourceSpec.Create.Path
+	}
+	op := r.ProviderInfo.SpecDefaults.CreateMethod
+	if op == "" {
+		op = r.ResourceInfo.ResourceSpec.Create.Method
+	}
+	return r.getOperationBodies(path, op)
+}
+
+func (r *resourceTemplateRenderer) getUpdateBodies() (*base.Schema, *base.Schema, error) {
+	path := r.ResourceInfo.ResourceSpec.Path
+	if path == "" {
+		path = r.ResourceInfo.ResourceSpec.Update.Path
+	}
+	op := r.ProviderInfo.SpecDefaults.UpdateMethod
+	if op == "" {
+		op = r.ResourceInfo.ResourceSpec.Update.Method
+	}
+	return r.getOperationBodies(path, op)
 }
 
 func getPropertyTypeStrings(propertySchema *base.Schema) (string, error) {
@@ -79,25 +107,33 @@ func (r *resourceTemplateRenderer) renderModelDataField(propertyName string, sch
 	return fmt.Sprintf("%s types.%s `tfsdk:\"%s\"`", casing.Camel(propertyName), attributeType, casing.Snake(propertyName)), nil
 }
 
-func (r *resourceTemplateRenderer) renderModelDataFields() (string, error) {
+func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 	result := strings.Builder{}
-	properties, err := r.findRequestBodyProperties()
+	createRequestBody, createResponseBody, err := r.getCreateBodies()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not get request/response bodies for create: %w", err)
 	}
+	updateRequestBody, updateResponseBody, err := r.getUpdateBodies()
+	if err != nil {
+		return "", fmt.Errorf("could not get request/response bodies for update: %w", err)
+	}
+	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
+		return "", fmt.Errorf("only object types are supported for request/response bodies")
+	}
+	// TODO: merge all four bodies
+	properties := createRequestBody.Properties
 	for propName, propSchema := range properties.FromOldest() {
 		attributeDefinition, err := r.renderModelDataField(propName, propSchema)
 		if err != nil {
 			return "", fmt.Errorf("could not render attribute definition of property: %w", err)
 		}
-		result.WriteString(fmt.Sprintf("\"%s\": ", propName))
 		result.WriteString(attributeDefinition)
-		result.WriteString(",\n")
+		result.WriteString("\n")
 	}
 	return result.String(), nil
 }
 
-func (r *resourceTemplateRenderer) renderAttributeDefinition(propertyName string, schemaProxy *base.SchemaProxy) (string, error) {
+func (r *resourceTemplateRenderer) renderAttributeDefinition(schemaProxy *base.SchemaProxy) (string, error) {
 	schema := schemaProxy.Schema()
 	if schema == nil {
 		return "", fmt.Errorf("could not build schema: %w", schemaProxy.GetBuildError())
@@ -110,13 +146,22 @@ func (r *resourceTemplateRenderer) renderAttributeDefinition(propertyName string
 }
 
 func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {
-	result := strings.Builder{}
-	properties, err := r.findRequestBodyProperties()
+	createRequestBody, createResponseBody, err := r.getCreateBodies()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("could not get request/response bodies for create: %w", err)
 	}
+	updateRequestBody, updateResponseBody, err := r.getUpdateBodies()
+	if err != nil {
+		return "", fmt.Errorf("could not get request/response bodies for update: %w", err)
+	}
+	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
+		return "", fmt.Errorf("only object types are supported for request/response bodies")
+	}
+	// TODO: merge all four bodies
+	properties := createRequestBody.Properties
+	result := strings.Builder{}
 	for propName, propSchema := range properties.FromOldest() {
-		attributeDefinition, err := r.renderAttributeDefinition(propName, propSchema)
+		attributeDefinition, err := r.renderAttributeDefinition(propSchema)
 		if err != nil {
 			return "", fmt.Errorf("could not render attribute definition of property: %w", err)
 		}
