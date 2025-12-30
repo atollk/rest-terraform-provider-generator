@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
+	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
@@ -37,8 +38,7 @@ type {{.ResourceInfo.NamePascal}}Resource struct {
 
 // {{.ResourceInfo.NamePascal}}ResourceModel describes the resource data model.
 type {{.ResourceInfo.NamePascal}}ResourceModel struct {
-    // TODO
-	ID        types.Int64  `tfsdk:"id"`
+    {{.renderModelDataFields}}
 }
 
 func (r *{{.ResourceInfo.NamePascal}}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
@@ -51,7 +51,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Schema(ctx context.Context, req r
 		MarkdownDescription: "{{.ResourceInfo.NamePascal}} resource",
 
 		Attributes: map[string]schema.Attribute{
-			{{call .RenderAttributeDefinitions}}
+			{{.RenderAttributeDefinitions}}
 		},
 	}
 }

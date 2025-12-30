@@ -29,6 +29,8 @@ func RenderSpec(
 		getMakefileTemplate(&providerInfo),
 		getMainGoTemplate(&providerInfo),
 		getGoModTemplate(&providerInfo),
+		getSharedGoTemplate(),
+		getOasJsonTemplate(api_spec),
 		getProviderGoTemplate(&providerInfo, resources, dataSources),
 	}
 	for _, resource := range resources {
@@ -51,5 +53,6 @@ func RenderSpec(
 			return fmt.Errorf("cannot write file: %w", err)
 		}
 	}
+
 	return nil
 }

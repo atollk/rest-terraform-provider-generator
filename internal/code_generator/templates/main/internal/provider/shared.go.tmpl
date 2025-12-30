@@ -1,0 +1,65 @@
+package provider
+
+import (
+	"context"
+	_ "embed"
+	"log"
+
+	tf_validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/pb33f/libopenapi"
+	openapi_validator "github.com/pb33f/libopenapi-validator"
+	"github.com/pb33f/libopenapi-validator/schema_validation"
+	"github.com/pb33f/libopenapi/datamodel/high/v3"
+)
+
+//go:embed oas.json
+var oasFile []byte
+
+var OpenApiDocument = loadOasDocument()
+
+var OpenApiModel = loadOasModel()
+
+var Validator = prepareValidator()
+
+var SchemaValidator = schema_validation.NewSchemaValidator()
+
+func loadOasDocument() libopenapi.Document {
+	document, err := libopenapi.NewDocument(oasFile)
+	if err != nil {
+		log.Panicf("could not open OAS document: %v", err)
+	}
+	return document
+}
+
+func loadOasModel() *libopenapi.DocumentModel[v3.Document] {
+	model, err := OpenApiDocument.BuildV3Model()
+	if err != nil {
+		log.Panicf("could not create OpenApi model: %v", err)
+	}
+	return model
+}
+
+func prepareValidator() openapi_validator.Validator {
+	val, errs := openapi_validator.NewValidator(OpenApiDocument)
+	if len(errs) > 0 {
+		log.Panicf("could not create validator from OpenApi model: %v", errs)
+	}
+	return val
+}
+
+type OpenApiSchemaValidator struct {
+}
+
+func (*OpenApiSchemaValidator) Description(context.Context) string {
+	return "data must satisfy OpenAPI schema"
+}
+
+func (*OpenApiSchemaValidator) MarkdownDescription(context.Context) string {
+	return "data must satisfy OpenAPI schema"
+}
+
+func (*OpenApiSchemaValidator) ValidateInt64(ctx context.Context, req tf_validator.Int64Request, resp *tf_validator.Int64Response) {
+	v := req.ConfigValue.ValueInt64()
+	schema := OpenApiModel.Model.Paths.PathItems.
+	SchemaValidator.ValidateSchemaObject(schema, v)
+}

@@ -14,6 +14,7 @@ require (
 	github.com/bahlo/generic-list-go v0.2.0 // indirect
 	github.com/basgys/goxml2json v1.1.1-0.20231018121955-e66ee54ceaad // indirect
 	github.com/buger/jsonparser v1.1.1 // indirect
+	github.com/danielgtaylor/casing v1.0.0 // indirect
 	github.com/dave/jennifer v1.5.1 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
 	github.com/go-json-experiment/json v0.0.0-20251027170946-4849db3c2f7e // indirect
