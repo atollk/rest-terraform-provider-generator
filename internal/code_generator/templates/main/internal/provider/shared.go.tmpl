@@ -3,12 +3,16 @@ package provider
 import (
 	"context"
 	_ "embed"
+	"fmt"
 	"log"
 
+	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	tf_validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/pb33f/libopenapi"
 	openapi_validator "github.com/pb33f/libopenapi-validator"
 	"github.com/pb33f/libopenapi-validator/schema_validation"
+	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/pb33f/libopenapi/datamodel/high/v3"
 )
 
@@ -48,6 +52,39 @@ func prepareValidator() openapi_validator.Validator {
 }
 
 type OpenApiSchemaValidator struct {
+	operationPath   string
+	operationMethod string
+	propertyName    string
+}
+
+func (v *OpenApiSchemaValidator) getRequestBodySchema() (*base.Schema, error) {
+	schema, exists := OpenApiModel.Model.Paths.PathItems.Get(v.operationPath)
+	if !exists {
+		return nil, fmt.Errorf("expected path in OpenAPI schema not found: %v", *v)
+	}
+	operation, exists := schema.GetOperations().Get(v.operationMethod)
+	if !exists {
+		return nil, fmt.Errorf("expected operation in OpenAPI schema not found: %v", *v)
+	}
+	requestBody, exists := operation.RequestBody.Content.Get("application/json")
+	if !exists {
+		return nil, fmt.Errorf("expected JSON body in OpenAPI schema not found: %v", *v)
+	}
+	requestBodySchema := requestBody.Schema.Schema()
+	if requestBodySchema == nil {
+		return nil, fmt.Errorf("could not load request body schema: %v", *v)
+	}
+	return requestBodySchema, nil
+}
+
+func  (v *OpenApiSchemaValidator) validate(value any, attributePath path.Path, diagnostics *diag.Diagnostics) {
+	requestBodySchema, err := v.getRequestBodySchema()
+	if err != nil {
+		diagnostics.AddAttributeError(attributePath, err.Error(), err.Error())
+		return
+	}
+	valid, errs := SchemaValidator.ValidateSchemaObject(requestBodySchema, value)
+	// TODO
 }
 
 func (*OpenApiSchemaValidator) Description(context.Context) string {
@@ -58,8 +95,18 @@ func (*OpenApiSchemaValidator) MarkdownDescription(context.Context) string {
 	return "data must satisfy OpenAPI schema"
 }
 
-func (*OpenApiSchemaValidator) ValidateInt64(ctx context.Context, req tf_validator.Int64Request, resp *tf_validator.Int64Response) {
-	v := req.ConfigValue.ValueInt64()
-	schema := OpenApiModel.Model.Paths.PathItems.
-	SchemaValidator.ValidateSchemaObject(schema, v)
+func (v *OpenApiSchemaValidator) ValidateBool(ctx context.Context, req tf_validator.BoolRequest, resp *tf_validator.BoolResponse) {
+	v.validate(req.ConfigValue.ValueBool(), req.Path, &resp.Diagnostics)
+}
+func (v *OpenApiSchemaValidator) ValidateInt64(ctx context.Context, req tf_validator.Int64Request, resp *tf_validator.Int64Response) {
+	v.validate(req.ConfigValue.ValueInt64(), req.Path, &resp.Diagnostics)
+}
+func (v *OpenApiSchemaValidator) ValidateFloat64(ctx context.Context, req tf_validator.Float64Request, resp *tf_validator.Float64Response) {
+	v.validate(req.ConfigValue.ValueFloat64(), req.Path, &resp.Diagnostics)
+}
+func (v *OpenApiSchemaValidator) ValidateString(ctx context.Context, req tf_validator.StringRequest, resp *tf_validator.StringResponse) {
+	v.validate(req.ConfigValue.ValueString(), req.Path, &resp.Diagnostics)
+}
+func (v *OpenApiSchemaValidator) ValidateDynamic(ctx context.Context, req tf_validator.DynamicRequest, resp *tf_validator.DynamicResponse) {
+	/* TODO */
 }

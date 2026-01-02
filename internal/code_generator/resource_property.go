@@ -1,10 +1,10 @@
 package code_generator
 
 import (
+	_ "embed"
 	"fmt"
 	"slices"
 
-	"github.com/danielgtaylor/casing"
 	"github.com/kaptinlin/messageformat-go/pkg/logger"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 )
@@ -134,31 +134,11 @@ func (p *augmentedPropertySchema) GetValidatorType() string {
 
 func (p *augmentedPropertySchema) RenderSchemaCreation() string {
 	return fmt.Sprintf(
-		"schema.%s { Validators: []validator.%s { %s{} } },\n",
+		"schema.%s { Validators: []validator.%s { &OpenApiSchemaValidator{ operationPath: \"%s\", operationMethod: \"%s\", propertyName: \"%s\" } } },\n",
 		p.GetSchemaType(),
 		p.GetValidatorType(),
-		p.getValidatorTypeName(),
+		p.parent.GetCreatePath(),
+		p.parent.GetCreateMethod(),
+		p.Name,
 	)
-}
-
-func (p *augmentedPropertySchema) getValidatorTypeName() string {
-	return fmt.Sprintf("%sValidator%s", casing.LowerCamel(p.parent.ResourceInfo.Name), casing.Camel(p.Name))
-}
-
-func (p *augmentedPropertySchema) RenderValidatorType() string {
-	return fmt.Sprintf("type %s struct{}\n/*TODO*/\n", p.getValidatorTypeName())
-	/*
-
-		type resOneValidatorId struct{}
-		func (resOneValidatorId) Description(context.Context) string {
-			return "id must follow the OpenAPI schema"
-		}
-		func (resOneValidatorId) MarkdownDescription(context.Context) string {
-			return "id must follow the OpenAPI schema"
-		}
-		func (resOneValidatorId) ValidateInt64(ctx context.Context, request validator.Int64Request, response *validator.Int64Response) {
-			//TODO implement me
-		}
-
-	*/
 }

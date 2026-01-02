@@ -54,36 +54,76 @@ func (r *resourceTemplateRenderer) getOperationBodies(path string, operation str
 	return requestSchema, responseSchema, nil
 }
 
-func (r *resourceTemplateRenderer) getCreateBodies() (*base.Schema, *base.Schema, error) {
+func (r *resourceTemplateRenderer) GetCreatePath() string {
 	path := r.ResourceInfo.ResourceSpec.Path
 	if path == "" {
 		path = r.ResourceInfo.ResourceSpec.Create.Path
 	}
+	return path
+}
+
+func (r *resourceTemplateRenderer) GetCreateMethod() string {
 	op := r.ProviderInfo.SpecDefaults.CreateMethod
 	if op == "" {
 		op = r.ResourceInfo.ResourceSpec.Create.Method
 	}
-	return r.getOperationBodies(path, op)
+	return op
 }
 
-func (r *resourceTemplateRenderer) getUpdateBodies() (*base.Schema, *base.Schema, error) {
+func (r *resourceTemplateRenderer) GetUpdatePath() string {
 	path := r.ResourceInfo.ResourceSpec.Path
 	if path == "" {
 		path = r.ResourceInfo.ResourceSpec.Update.Path
 	}
+	return path
+}
+
+func (r *resourceTemplateRenderer) GetUpdateMethod() string {
 	op := r.ProviderInfo.SpecDefaults.UpdateMethod
 	if op == "" {
 		op = r.ResourceInfo.ResourceSpec.Update.Method
 	}
-	return r.getOperationBodies(path, op)
+	return op
+}
+
+func (r *resourceTemplateRenderer) GetDestroyPath() string {
+	path := r.ResourceInfo.ResourceSpec.Path
+	if path == "" {
+		path = r.ResourceInfo.ResourceSpec.Destroy.Path
+	}
+	return path
+}
+
+func (r *resourceTemplateRenderer) GetDestroyMethod() string {
+	op := r.ProviderInfo.SpecDefaults.DestroyMethod
+	if op == "" {
+		op = r.ResourceInfo.ResourceSpec.Destroy.Method
+	}
+	return op
+}
+
+func (r *resourceTemplateRenderer) GetReadPath() string {
+	path := r.ResourceInfo.ResourceSpec.Path
+	if path == "" {
+		path = r.ResourceInfo.ResourceSpec.Read.Path
+	}
+	return path
+}
+
+func (r *resourceTemplateRenderer) GetReadMethod() string {
+	op := r.ProviderInfo.SpecDefaults.ReadMethod
+	if op == "" {
+		op = r.ResourceInfo.ResourceSpec.Read.Method
+	}
+	return op
 }
 
 func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropertySchema, error) {
-	createRequestBody, createResponseBody, err := r.getCreateBodies()
+	createRequestBody, createResponseBody, err := r.getOperationBodies(r.GetCreatePath(), r.GetCreateMethod())
 	if err != nil {
 		return nil, errors.Errorf("could not get request/response bodies for create: %w", err)
 	}
-	updateRequestBody, updateResponseBody, err := r.getUpdateBodies()
+	updateRequestBody, updateResponseBody, err := r.getOperationBodies(r.GetUpdatePath(), r.GetUpdateMethod())
 	if err != nil {
 		return nil, errors.Errorf("could not get request/response bodies for update: %w", err)
 	}
@@ -161,20 +201,6 @@ func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 		)
 	}
 	return result.String(), nil
-}
-
-func (r *resourceTemplateRenderer) RenderAttributeValidators() (string, error) {
-	properties, err := r.getPropertiesFromBodies()
-	if err != nil {
-		return "", errors.Errorf("could not get body properties: %w", err)
-	}
-
-	result := strings.Builder{}
-	for _, prop := range properties {
-		result.WriteString(prop.RenderValidatorType())
-	}
-	return result.String(), nil
-
 }
 
 func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {

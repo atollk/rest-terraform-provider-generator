@@ -45,8 +45,6 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Metadata(ctx context.Context, req
 	resp.TypeName = req.ProviderTypeName + "_{{.ResourceInfo.NameSnake}}"
 }
 
-{{.RenderAttributeValidators}}
-
 func (r *{{.ResourceInfo.NamePascal}}Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
@@ -121,7 +119,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) doRequest(method, url string, bod
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, errors.Errorf("API request failed with status %d: %s", res.StatusCode, string(responseBody))
+		return nil, fmt.Errorf("API request failed with status %d: %s", res.StatusCode, string(responseBody))
 	}
 
 	var result map[string]interface{}
@@ -153,7 +151,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req r
 	// TODO: fill resourceData
 
 	// Create the resource
-	createdResource, err := r.doRequest("POST", fmt.Sprintf("%s/pet", r.baseURL), resourceData)
+	createdResource, err := r.doRequest("{{.GetCreateMethod}}", fmt.Sprintf("%s{{.GetCreatePath}}", r.baseURL), resourceData)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create resource, got error: %s", err))
 		return
@@ -185,7 +183,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Read(ctx context.Context, req res
 	}
 
 	// Get pet from API
-	pet, err := r.doRequest("GET", fmt.Sprintf("%s/pet/%d", r.baseURL, data.ID.ValueInt64()), nil)
+	pet, err := r.doRequest("{{.GetReadMethod}}", fmt.Sprintf("%s{{.GetReadPath}}", r.baseURL), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read pet, got error: %s", err))
 		return
@@ -238,7 +236,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Update(ctx context.Context, req r
 	// TODO: fill pet data
 
 	// Update the pet
-	updatedPet, err := r.doRequest("PUT", fmt.Sprintf("%s/pet", r.baseURL), petData)
+	updatedPet, err := r.doRequest("{{.GetUpdateMethod}}", fmt.Sprintf("%s{{.GetUpdatePath}}", r.baseURL), petData)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update pet, got error: %s", err))
 		return
@@ -267,7 +265,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Delete(ctx context.Context, req r
 	}
 
 	// Delete the pet
-	_, err := r.doRequest("DELETE", fmt.Sprintf("%s/pet/%d", r.baseURL, data.ID.ValueInt64()), nil)
+	_, err := r.doRequest("{{.GetDestroyMethod}}", fmt.Sprintf("%s{{.GetDestroyPath}}", r.baseURL), nil)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete pet, got error: %s", err))
 		return
