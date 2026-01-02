@@ -4,14 +4,24 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/danielgtaylor/casing"
 	"github.com/kaptinlin/messageformat-go/pkg/logger"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 )
 
-// property represents any kind of data object that is defined by a schema in OpenAPI.
-type property struct {
-	schema *base.Schema
+type augmentedPropertySchema struct {
+	Name                string
+	Schema              *base.Schema
+	containedInBodyFlag int
+	parent              *resourceTemplateRenderer
 }
+
+const (
+	augmentedPropertySchemaCreateRequest  = 1 << iota
+	augmentedPropertySchemaCreateResponse = 1 << iota
+	augmentedPropertySchemaUpdateRequest  = 1 << iota
+	augmentedPropertySchemaUpdateResponse = 1 << iota
+)
 
 const (
 	propertyTypeBool   = "bool"
@@ -44,31 +54,31 @@ func mapJsonSchemaToInternal(jsonSchemaType string) string {
 	}
 }
 
-func (p *property) GetTopSchemaType() string {
-	if slices.Contains(p.schema.Type, "null") {
-		if len(p.schema.Type) != 2 {
+func (p *augmentedPropertySchema) GetTopSchemaType() string {
+	if slices.Contains(p.Schema.Type, "null") {
+		if len(p.Schema.Type) != 2 {
 			return propertyTypeAny
 		}
-		if p.schema.Type[0] == "null" {
-			return mapJsonSchemaToInternal(p.schema.Type[1])
+		if p.Schema.Type[0] == "null" {
+			return mapJsonSchemaToInternal(p.Schema.Type[1])
 		} else {
-			return mapJsonSchemaToInternal(p.schema.Type[0])
+			return mapJsonSchemaToInternal(p.Schema.Type[0])
 		}
 	} else {
-		if len(p.schema.Type) != 1 {
+		if len(p.Schema.Type) != 1 {
 			return propertyTypeAny
 		} else {
-			return mapJsonSchemaToInternal(p.schema.Type[0])
+			return mapJsonSchemaToInternal(p.Schema.Type[0])
 		}
 	}
 }
 
-func (p *property) IsNullable() bool {
-	hasNullableType := slices.Contains(p.schema.Type, "null")
-	return (p.schema.Nullable != nil && *p.schema.Nullable) || hasNullableType
+func (p *augmentedPropertySchema) IsNullable() bool {
+	hasNullableType := slices.Contains(p.Schema.Type, "null")
+	return (p.Schema.Nullable != nil && *p.Schema.Nullable) || hasNullableType
 }
 
-func (p *property) GetTypeType() string {
+func (p *augmentedPropertySchema) GetTypeType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
 		return "Bool"
@@ -86,7 +96,7 @@ func (p *property) GetTypeType() string {
 	}
 }
 
-func (p *property) GetSchemaType() string {
+func (p *augmentedPropertySchema) GetSchemaType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
 		return "BoolAttribute"
@@ -104,7 +114,7 @@ func (p *property) GetSchemaType() string {
 	}
 }
 
-func (p *property) GetValidatorType() string {
+func (p *augmentedPropertySchema) GetValidatorType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
 		return "Bool"
@@ -122,14 +132,33 @@ func (p *property) GetValidatorType() string {
 	}
 }
 
-func (p *property) RenderSchemaCreation() string {
+func (p *augmentedPropertySchema) RenderSchemaCreation() string {
 	return fmt.Sprintf(
-		"schema.%s { Validators: []validator.%s { /* TODO */ } },\n",
+		"schema.%s { Validators: []validator.%s { %s{} } },\n",
 		p.GetSchemaType(),
 		p.GetValidatorType(),
+		p.getValidatorTypeName(),
 	)
 }
 
-func newPropertyType(schema *base.Schema) property {
-	return property{schema}
+func (p *augmentedPropertySchema) getValidatorTypeName() string {
+	return fmt.Sprintf("%sValidator%s", casing.LowerCamel(p.parent.ResourceInfo.Name), casing.Camel(p.Name))
+}
+
+func (p *augmentedPropertySchema) RenderValidatorType() string {
+	return fmt.Sprintf("type %s struct{}\n/*TODO*/\n", p.getValidatorTypeName())
+	/*
+
+		type resOneValidatorId struct{}
+		func (resOneValidatorId) Description(context.Context) string {
+			return "id must follow the OpenAPI schema"
+		}
+		func (resOneValidatorId) MarkdownDescription(context.Context) string {
+			return "id must follow the OpenAPI schema"
+		}
+		func (resOneValidatorId) ValidateInt64(ctx context.Context, request validator.Int64Request, response *validator.Int64Response) {
+			//TODO implement me
+		}
+
+	*/
 }

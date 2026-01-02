@@ -90,7 +90,7 @@ func (c *Client) doRequest(req *http.Request) ([]byte, error) {
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("API request failed with status %d: %s", res.StatusCode, string(body))
+		return nil, errors.Errorf("API request failed with status %d: %s", res.StatusCode, string(body))
 	}
 
 	return body, nil

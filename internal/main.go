@@ -4,7 +4,9 @@ import (
 	"atollk/terraform-api-provider-generator/internal/code_generator"
 	"atollk/terraform-api-provider-generator/internal/oas_parser"
 	"atollk/terraform-api-provider-generator/internal/provider_spec"
+	"fmt"
 	"log"
+	"os"
 )
 
 func main() {
@@ -18,6 +20,7 @@ func main() {
 	}
 	err = code_generator.RenderSpec("example/out", providerSpec, oadoc)
 	if err != nil {
-		log.Panic(err)
+		fmt.Printf("%+v\n", err)
+		os.Exit(1)
 	}
 }

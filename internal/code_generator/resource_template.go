@@ -6,8 +6,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/cockroachdb/errors"
 	"github.com/danielgtaylor/casing"
+	"github.com/kaptinlin/messageformat-go/pkg/logger"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
+	"github.com/pb33f/libopenapi/orderedmap"
 )
 
 //go:embed templates/main/internal/provider/resource.go.tmpl
@@ -26,27 +29,27 @@ func (r *resourceTemplateRenderer) Name() string {
 func (r *resourceTemplateRenderer) getOperationBodies(path string, operation string) (*base.Schema, *base.Schema, error) {
 	pathObject, present := r.ResourceInfo.OADoc.Model.Paths.PathItems.Get(path)
 	if !present {
-		return nil, nil, fmt.Errorf("could not find expected path %v", path)
+		return nil, nil, errors.Errorf("could not find expected path %v", path)
 	}
 	op, present := pathObject.GetOperations().Get(strings.ToLower(operation))
 	if !present {
-		return nil, nil, fmt.Errorf("could not find expected operation %v", operation)
+		return nil, nil, errors.Errorf("could not find expected operation %v", operation)
 	}
 	requestContent, present := op.RequestBody.Content.Get("application/json")
 	if !present {
-		return nil, nil, fmt.Errorf("could not find expected request content type %v", "application/json")
+		return nil, nil, errors.Errorf("could not find expected request content type %v", "application/json")
 	}
 	responseContent, present := op.RequestBody.Content.Get("application/json")
 	if !present {
-		return nil, nil, fmt.Errorf("could not find expected response content type %v", "application/json")
+		return nil, nil, errors.Errorf("could not find expected response content type %v", "application/json")
 	}
 	requestSchema := requestContent.Schema.Schema()
 	if requestSchema == nil {
-		return nil, nil, fmt.Errorf("could not build schema: %w", requestContent.Schema.GetBuildError())
+		return nil, nil, errors.Errorf("could not build schema: %w", requestContent.Schema.GetBuildError())
 	}
 	responseSchema := responseContent.Schema.Schema()
 	if responseSchema == nil {
-		return nil, nil, fmt.Errorf("could not build schema: %w", responseContent.Schema.GetBuildError())
+		return nil, nil, errors.Errorf("could not build schema: %w", responseContent.Schema.GetBuildError())
 	}
 	return requestSchema, responseSchema, nil
 }
@@ -75,75 +78,119 @@ func (r *resourceTemplateRenderer) getUpdateBodies() (*base.Schema, *base.Schema
 	return r.getOperationBodies(path, op)
 }
 
-func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
-	// Retrieve the relevant schemas
-	result := strings.Builder{}
+func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropertySchema, error) {
 	createRequestBody, createResponseBody, err := r.getCreateBodies()
 	if err != nil {
-		return "", fmt.Errorf("could not get request/response bodies for create: %w", err)
+		return nil, errors.Errorf("could not get request/response bodies for create: %w", err)
 	}
 	updateRequestBody, updateResponseBody, err := r.getUpdateBodies()
 	if err != nil {
-		return "", fmt.Errorf("could not get request/response bodies for update: %w", err)
+		return nil, errors.Errorf("could not get request/response bodies for update: %w", err)
 	}
 	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
-		return "", fmt.Errorf("only object types are supported for request/response bodies")
+		return nil, errors.Errorf("only object types are supported for request/response bodies")
+	}
+	for bodyName, schemaType := range map[string][]string{
+		"create request":  createRequestBody.Type,
+		"create response": createResponseBody.Type,
+		"update request":  updateRequestBody.Type,
+		"update response": updateResponseBody.Type,
+	} {
+		if !slices.Equal(schemaType, []string{"object"}) || slices.Equal(schemaType, []string{"object", "null"}) || slices.Equal(schemaType, []string{"null", "object"}) {
+			logger.Warn(fmt.Sprintf("%s body has unexpected schema type %v; will default to dynamic type", bodyName, schemaType))
+			return nil, nil
+		}
 	}
 
-	// TODO: merge all four bodies
-
-	// Render properties
-	properties := createRequestBody.Properties
-	for propName, propSchema := range properties.FromOldest() {
-		schema := propSchema.Schema()
-		if schema == nil {
-			return "", fmt.Errorf("could not build schema of property %s: %w", propName, propSchema.GetBuildError())
+	propertyMap := orderedmap.New[string, *augmentedPropertySchema]()
+	parsePropertiesForBody := func(bodyName string, bodySchema *base.Schema, flag int) error {
+		for propertyName, propertySchemaProxy := range createRequestBody.Properties.FromOldest() {
+			propertySchema := propertySchemaProxy.Schema()
+			if propertySchema == nil {
+				return errors.Errorf("could not get schema for property %s in %s body", propertyName, bodyName)
+			}
+			entry, exists := propertyMap.Get(propertyName)
+			if !exists {
+				entry = &augmentedPropertySchema{Name: propertyName, Schema: propertySchema, parent: r}
+				propertyMap.Set(propertyName, entry)
+			}
+			entry.containedInBodyFlag = entry.containedInBodyFlag | flag
 		}
-		attributeType := newPropertyType(schema)
+		return nil
+	}
+	err = parsePropertiesForBody("create request", createRequestBody, augmentedPropertySchemaCreateRequest)
+	if err != nil {
+		return nil, err
+	}
+	err = parsePropertiesForBody("create response", createResponseBody, augmentedPropertySchemaCreateResponse)
+	if err != nil {
+		return nil, err
+	}
+	err = parsePropertiesForBody("update request", updateRequestBody, augmentedPropertySchemaUpdateRequest)
+	if err != nil {
+		return nil, err
+	}
+	err = parsePropertiesForBody("update response", updateResponseBody, augmentedPropertySchemaUpdateResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []augmentedPropertySchema
+	for prop := range propertyMap.ValuesFromOldest() {
+		result = append(result, *prop)
+	}
+	return result, nil
+}
+
+func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
+	properties, err := r.getPropertiesFromBodies()
+	if err != nil {
+		return "", errors.Errorf("could not get body properties: %w", err)
+	}
+
+	result := strings.Builder{}
+	for _, prop := range properties {
 		builderWriteStrings(
 			&result,
-			casing.Camel(propName),
+			casing.Camel(prop.Name),
 			" types.",
-			attributeType.GetTypeType(),
+			prop.GetTypeType(),
 			" `tfsdk:\"",
-			casing.Snake(propName),
+			casing.Snake(prop.Name),
 			"\"`\n",
 		)
 	}
 	return result.String(), nil
 }
 
-func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {
-	// Retrieve the relevant schemas
-	createRequestBody, createResponseBody, err := r.getCreateBodies()
+func (r *resourceTemplateRenderer) RenderAttributeValidators() (string, error) {
+	properties, err := r.getPropertiesFromBodies()
 	if err != nil {
-		return "", fmt.Errorf("could not get request/response bodies for create: %w", err)
-	}
-	updateRequestBody, updateResponseBody, err := r.getUpdateBodies()
-	if err != nil {
-		return "", fmt.Errorf("could not get request/response bodies for update: %w", err)
-	}
-	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
-		return "", fmt.Errorf("only object types are supported for request/response bodies")
+		return "", errors.Errorf("could not get body properties: %w", err)
 	}
 
-	// TODO: merge all four bodies
-
-	// Render properties
-	properties := createRequestBody.Properties
 	result := strings.Builder{}
-	for propName, propSchema := range properties.FromOldest() {
-		schema := propSchema.Schema()
-		if schema == nil {
-			return "", fmt.Errorf("could not build schema of property %s: %w", propName, propSchema.GetBuildError())
-		}
-		attributeType := newPropertyType(schema)
+	for _, prop := range properties {
+		result.WriteString(prop.RenderValidatorType())
+	}
+	return result.String(), nil
+
+}
+
+func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {
+	properties, err := r.getPropertiesFromBodies()
+	if err != nil {
+		return "", errors.Errorf("could not get body properties: %w", err)
+	}
+
+	result := strings.Builder{}
+	for _, prop := range properties {
 		builderWriteStrings(
 			&result,
 			"\"",
-			propName,
+			prop.Name,
 			"\": ",
-			attributeType.RenderSchemaCreation(),
+			prop.RenderSchemaCreation(),
 		)
 	}
 	return result.String(), nil

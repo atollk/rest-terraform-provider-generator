@@ -188,7 +188,7 @@ func (r *PetResource) doRequest(method, url string, body map[string]interface{})
 	}
 
 	if res.StatusCode < 200 || res.StatusCode >= 300 {
-		return nil, fmt.Errorf("API request failed with status %d: %s", res.StatusCode, string(responseBody))
+		return nil, errors.Errorf("API request failed with status %d: %s", res.StatusCode, string(responseBody))
 	}
 
 	var result map[string]interface{}

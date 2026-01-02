@@ -3,9 +3,10 @@ package code_generator
 import (
 	"atollk/terraform-api-provider-generator/internal/oas_parser"
 	"atollk/terraform-api-provider-generator/internal/provider_spec"
-	"fmt"
 	"os"
 	"path"
+
+	"github.com/cockroachdb/errors"
 )
 
 func RenderSpec(
@@ -46,15 +47,15 @@ func RenderSpec(
 		completePath := path.Join(outputPath, renderer.Name())
 		err := os.MkdirAll(path.Dir(completePath), os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("cannot create directories: %w", err)
+			return errors.Errorf("cannot create directories: %w", err)
 		}
 		output, err := renderer.Render()
 		if err != nil {
-			return fmt.Errorf("cannot execute template: %w", err)
+			return errors.Errorf("cannot execute template: %w", err)
 		}
 		err = os.WriteFile(completePath, output, os.ModePerm)
 		if err != nil {
-			return fmt.Errorf("cannot write file: %w", err)
+			return errors.Errorf("cannot write file: %w", err)
 		}
 	}
 
