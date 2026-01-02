@@ -75,39 +75,8 @@ func (r *resourceTemplateRenderer) getUpdateBodies() (*base.Schema, *base.Schema
 	return r.getOperationBodies(path, op)
 }
 
-func getPropertyTypeStrings(propertySchema *base.Schema) (string, error) {
-	var t string
-	if len(propertySchema.Type) != 1 {
-		return "", fmt.Errorf("property schemas have to have exactly one type, but was: %v", propertySchema.Type)
-	}
-	switch propertySchema.Type[0] {
-	case "boolean":
-		t = "Bool"
-	case "integer":
-		t = "Int64"
-	case "number":
-		t = "Float64"
-	case "string":
-		t = "String"
-	default:
-		t = "Dynamic"
-	}
-	return t, nil
-}
-
-func (r *resourceTemplateRenderer) renderModelDataField(propertyName string, schemaProxy *base.SchemaProxy) (string, error) {
-	schema := schemaProxy.Schema()
-	if schema == nil {
-		return "", fmt.Errorf("could not build schema: %w", schemaProxy.GetBuildError())
-	}
-	attributeType, err := getPropertyTypeStrings(schema)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%s types.%s `tfsdk:\"%s\"`", casing.Camel(propertyName), attributeType, casing.Snake(propertyName)), nil
-}
-
 func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
+	// Retrieve the relevant schemas
 	result := strings.Builder{}
 	createRequestBody, createResponseBody, err := r.getCreateBodies()
 	if err != nil {
@@ -120,32 +89,32 @@ func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
 		return "", fmt.Errorf("only object types are supported for request/response bodies")
 	}
+
 	// TODO: merge all four bodies
+
+	// Render properties
 	properties := createRequestBody.Properties
 	for propName, propSchema := range properties.FromOldest() {
-		attributeDefinition, err := r.renderModelDataField(propName, propSchema)
-		if err != nil {
-			return "", fmt.Errorf("could not render attribute definition of property: %w", err)
+		schema := propSchema.Schema()
+		if schema == nil {
+			return "", fmt.Errorf("could not build schema of property %s: %w", propName, propSchema.GetBuildError())
 		}
-		result.WriteString(attributeDefinition)
-		result.WriteString("\n")
+		attributeType := newPropertyType(schema)
+		builderWriteStrings(
+			&result,
+			casing.Camel(propName),
+			" types.",
+			attributeType.GetTypeType(),
+			" `tfsdk:\"",
+			casing.Snake(propName),
+			"\"`\n",
+		)
 	}
 	return result.String(), nil
-}
-
-func (r *resourceTemplateRenderer) renderAttributeDefinition(schemaProxy *base.SchemaProxy) (string, error) {
-	schema := schemaProxy.Schema()
-	if schema == nil {
-		return "", fmt.Errorf("could not build schema: %w", schemaProxy.GetBuildError())
-	}
-	attributeType, err := getPropertyTypeStrings(schema)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("schema.%vAttribute { Validators: []validator.%v { /* TODO */ } }", attributeType, attributeType), nil
 }
 
 func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {
+	// Retrieve the relevant schemas
 	createRequestBody, createResponseBody, err := r.getCreateBodies()
 	if err != nil {
 		return "", fmt.Errorf("could not get request/response bodies for create: %w", err)
@@ -157,19 +126,33 @@ func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) 
 	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
 		return "", fmt.Errorf("only object types are supported for request/response bodies")
 	}
+
 	// TODO: merge all four bodies
+
+	// Render properties
 	properties := createRequestBody.Properties
 	result := strings.Builder{}
 	for propName, propSchema := range properties.FromOldest() {
-		attributeDefinition, err := r.renderAttributeDefinition(propSchema)
-		if err != nil {
-			return "", fmt.Errorf("could not render attribute definition of property: %w", err)
+		schema := propSchema.Schema()
+		if schema == nil {
+			return "", fmt.Errorf("could not build schema of property %s: %w", propName, propSchema.GetBuildError())
 		}
-		result.WriteString(fmt.Sprintf("\"%s\": ", propName))
-		result.WriteString(attributeDefinition)
-		result.WriteString(",\n")
+		attributeType := newPropertyType(schema)
+		builderWriteStrings(
+			&result,
+			"\"",
+			propName,
+			"\": ",
+			attributeType.RenderSchemaCreation(),
+		)
 	}
 	return result.String(), nil
+}
+
+func builderWriteStrings(builder *strings.Builder, strs ...string) {
+	for _, s := range strs {
+		builder.WriteString(s)
+	}
 }
 
 func (r *resourceTemplateRenderer) Render() ([]byte, error) {
