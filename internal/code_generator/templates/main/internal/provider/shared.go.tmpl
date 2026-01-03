@@ -3,12 +3,17 @@ package provider
 import (
 	"context"
 	_ "embed"
+	"errors"
 	"fmt"
 	"log"
+	"math/big"
+	"reflect"
 
+	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	tf_validator "github.com/hashicorp/terraform-plugin-framework/schema/validator"
+	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/pb33f/libopenapi"
 	openapi_validator "github.com/pb33f/libopenapi-validator"
 	"github.com/pb33f/libopenapi-validator/schema_validation"
@@ -51,6 +56,19 @@ func prepareValidator() openapi_validator.Validator {
 	return val
 }
 
+func UnpackDynamicType(dynamic *types.Dynamic, ctx context.Context) (any, error) {
+	unpacked, err := dynamic.ToTerraformValue(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not unpack dynamic value: %w", err)
+	}
+	var value any
+	err = unpacked.As(&value)
+	if err != nil {
+		return nil, fmt.Errorf("could not unpack dynamic value: %w", err)
+	}
+	return value, nil
+}
+
 type OpenApiSchemaValidator struct {
 	operationPath   string
 	operationMethod string
@@ -77,7 +95,7 @@ func (v *OpenApiSchemaValidator) getRequestBodySchema() (*base.Schema, error) {
 	return requestBodySchema, nil
 }
 
-func  (v *OpenApiSchemaValidator) validate(value any, attributePath path.Path, diagnostics *diag.Diagnostics) {
+func (v *OpenApiSchemaValidator) validate(value any, attributePath path.Path, diagnostics *diag.Diagnostics) {
 	requestBodySchema, err := v.getRequestBodySchema()
 	if err != nil {
 		diagnostics.AddAttributeError(attributePath, err.Error(), err.Error())
@@ -109,4 +127,101 @@ func (v *OpenApiSchemaValidator) ValidateString(ctx context.Context, req tf_vali
 }
 func (v *OpenApiSchemaValidator) ValidateDynamic(ctx context.Context, req tf_validator.DynamicRequest, resp *tf_validator.DynamicResponse) {
 	/* TODO */
+}
+
+func anyToAttrValue(data any) (attr.Value, error) {
+	if data == nil {
+		return types.StringNull(), nil
+	}
+
+	v := reflect.ValueOf(data)
+
+	switch v.Kind() {
+	case reflect.String:
+		return types.StringValue(v.String()), nil
+
+	case reflect.Bool:
+		return types.BoolValue(v.Bool()), nil
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return types.NumberValue(big.NewFloat(float64(v.Int()))), nil
+
+	case reflect.Float32, reflect.Float64:
+		return types.NumberValue(big.NewFloat(v.Float())), nil
+
+	case reflect.Map:
+		// Build object dynamically
+		attrTypes := make(map[string]attr.Type)
+		attrValues := make(map[string]attr.Value)
+
+		iter := v.MapRange()
+		for iter.Next() {
+			key := iter.Key().String()
+			val := iter.Value().Interface()
+
+			attrVal, err := anyToAttrValue(val)
+			if err != nil {
+				return nil, err
+			}
+
+			attrValues[key] = attrVal
+			attrTypes[key] = attrVal.Type(nil)
+		}
+
+		value, diagnostics := types.ObjectValue(attrTypes, attrValues)
+		if diagnostics.HasError() {
+			var errMsg string
+			for _, err := range diagnostics.Errors() {
+				errMsg += err.Detail()
+				errMsg += "\n"
+			}
+			return nil, errors.New(errMsg)
+		}
+		return value, nil
+
+	case reflect.Slice, reflect.Array:
+		if v.Len() == 0 {
+			// Empty list - default to dynamic element type
+			return types.ListNull(types.DynamicType), nil
+		}
+
+		// Convert all elements
+		elements := make([]attr.Value, v.Len())
+		var elemType attr.Type
+
+		for i := 0; i < v.Len(); i++ {
+			elem, err := anyToAttrValue(v.Index(i).Interface())
+			if err != nil {
+				return nil, err
+			}
+			elements[i] = elem
+
+			if i == 0 {
+				elemType = elem.Type(nil)
+			}
+		}
+
+		value, diagnostics := types.ListValue(elemType, elements)
+		if diagnostics.HasError() {
+			var errMsg string
+			for _, err := range diagnostics.Errors() {
+				errMsg += err.Detail()
+				errMsg += "\n"
+			}
+			return nil, errors.New(errMsg)
+		}
+		return value, nil
+
+	default:
+		return nil, fmt.Errorf("unsupported type: %v", v.Kind())
+	}
+}
+
+func anyToDynamic(data any) (types.Dynamic, error) {
+	attrVal, err := anyToAttrValue(data)
+	if err != nil {
+		return types.DynamicNull(), err
+	}
+
+	return types.DynamicValue(attrVal), nil
 }

@@ -13,9 +13,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/int64planmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
-	"github.com/hashicorp/terraform-plugin-framework/resource/schema/stringplanmodifier"
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
@@ -143,30 +141,19 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req r
 		return
 	}
 
-	// Build request body as a map
-	resourceData := map[string]interface{}{
-		"name": data.Name.ValueString(),
-	}
+    // Fill request body
+	requestBody := make(map[string]any)
+	{{.RenderFillCreateBody}}
 
-	// TODO: fill resourceData
-
-	// Create the resource
-	createdResource, err := r.doRequest("{{.GetCreateMethod}}", fmt.Sprintf("%s{{.GetCreatePath}}", r.baseURL), resourceData)
+	// Send the request
+	responseBody, err := r.doRequest("{{.GetCreateMethod}}", fmt.Sprintf("%s{{.GetCreatePath}}", r.baseURL), requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create resource, got error: %s", err))
 		return
 	}
 
 	// Update model with response data
-	if id, ok := createdResource["id"].(float64); ok {
-		data.ID = types.Int64Value(int64(id))
-	}
-	if name, ok := createdResource["name"].(string); ok {
-		data.Name = types.StringValue(name)
-	}
-	if status, ok := createdResource["status"].(string); ok && status != "" {
-		data.Status = types.StringValue(status)
-	}
+	{{.RenderUpdateDataWithCreateResponse}}
 
 	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
@@ -273,15 +260,8 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Delete(ctx context.Context, req r
 }
 
 func (r *{{.ResourceInfo.NamePascal}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
-	// Parse the import ID as an integer
-	id, err := strconv.ParseInt(req.ID, 10, 64)
-	if err != nil {
-		resp.Diagnostics.AddError(
-			"Invalid Import ID",
-			fmt.Sprintf("The import ID must be a valid integer, got: %s", req.ID),
-		)
-		return
-	}
-
-	resp.Diagnostics.Append(resp.State.SetAttribute(ctx, path.Root("id"), id)...)
+    resp.Diagnostics.AddError(
+        "Import currently unsupported",
+        "Import currently unsupported",
+    )
 }

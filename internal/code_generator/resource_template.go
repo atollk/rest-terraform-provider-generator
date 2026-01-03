@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
-	"github.com/danielgtaylor/casing"
 	"github.com/kaptinlin/messageformat-go/pkg/logger"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/pb33f/libopenapi/orderedmap"
@@ -182,7 +181,7 @@ func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropert
 	return result, nil
 }
 
-func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
+func (r *resourceTemplateRenderer) renderForEachProp(f func(*augmentedPropertySchema) string) (string, error) {
 	properties, err := r.getPropertiesFromBodies()
 	if err != nil {
 		return "", errors.Errorf("could not get body properties: %w", err)
@@ -190,42 +189,42 @@ func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 
 	result := strings.Builder{}
 	for _, prop := range properties {
-		builderWriteStrings(
-			&result,
-			casing.Camel(prop.Name),
-			" types.",
-			prop.GetTypeType(),
-			" `tfsdk:\"",
-			casing.Snake(prop.Name),
-			"\"`\n",
-		)
+		result.WriteString(f(&prop))
+		result.WriteRune('\n')
 	}
 	return result.String(), nil
+}
+
+func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderModelDataFields()
+		},
+	)
 }
 
 func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {
-	properties, err := r.getPropertiesFromBodies()
-	if err != nil {
-		return "", errors.Errorf("could not get body properties: %w", err)
-	}
-
-	result := strings.Builder{}
-	for _, prop := range properties {
-		builderWriteStrings(
-			&result,
-			"\"",
-			prop.Name,
-			"\": ",
-			prop.RenderSchemaCreation(),
-		)
-	}
-	return result.String(), nil
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderAttributeDefinitions()
+		},
+	)
 }
 
-func builderWriteStrings(builder *strings.Builder, strs ...string) {
-	for _, s := range strs {
-		builder.WriteString(s)
-	}
+func (r *resourceTemplateRenderer) RenderFillCreateBody() (string, error) {
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderFillCreateBody()
+		},
+	)
+}
+
+func (r *resourceTemplateRenderer) RenderUpdateDataWithCreateResponse() (string, error) {
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderUpdateDataWithCreateResponse()
+		},
+	)
 }
 
 func (r *resourceTemplateRenderer) Render() ([]byte, error) {
