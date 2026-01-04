@@ -1,0 +1,30 @@
+$schema: "../internal/provider_spec/rest_api_provider_schema.json"
+global_defaults:
+  uri: "petstore.com"
+  id_attribute: "id"
+  create_method: POST
+  destroy_method: DELETE
+  update_method: PUT
+  read_method: GET
+
+resources:
+  pet:
+    path: "/pet"
+    force_recreate: true
+    update:
+      path: "/pet"
+    read:
+      path: "/pet"
+    destroy:
+      path: "/pet"
+
+  order:
+    path: "/store/order"
+    force_recreate: true
+    id_attribute_path: "orderId"
+
+  user:
+    path: "/user"
+    id_attribute: "username"
+    force_new:
+      - "username"
