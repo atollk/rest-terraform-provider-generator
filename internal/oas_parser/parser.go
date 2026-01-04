@@ -9,8 +9,11 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high/v3"
 )
 
+// OADoc is a type alias for an OpenAPI v3 document model.
 type OADoc = *libopenapi.DocumentModel[v3.Document]
 
+// Parse reads and parses an OpenAPI specification file from the given path.
+// It returns a v3 document model or an error if parsing fails.
 func Parse(path string) (OADoc, error) {
 	bytes, err := os.ReadFile(path)
 	if err != nil {

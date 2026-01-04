@@ -1,3 +1,5 @@
+// Package main is the entry point for the Terraform API provider generator.
+// It parses OpenAPI and provider specifications and generates Terraform provider code.
 package main
 
 import (

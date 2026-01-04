@@ -15,16 +15,20 @@ import (
 //go:embed templates/main/internal/provider/resource.go.tmpl
 var resourceGoTemplate string
 
+// resourceTemplateRenderer implements templateRenderer for generating Terraform resource code.
 type resourceTemplateRenderer struct {
 	name         string
 	ProviderInfo *ProviderInfo
 	ResourceInfo *ResourceInfo
 }
 
+// Name returns the output file name for this resource template.
 func (r *resourceTemplateRenderer) Name() string {
 	return r.name
 }
 
+// getOperationBodies extracts the request and response schemas for a given OpenAPI operation.
+// It returns the request schema, response schema, and any error encountered.
 func (r *resourceTemplateRenderer) getOperationBodies(path string, operation string) (*base.Schema, *base.Schema, error) {
 	pathObject, present := r.ResourceInfo.OADoc.Model.Paths.PathItems.Get(path)
 	if !present {
@@ -53,6 +57,7 @@ func (r *resourceTemplateRenderer) getOperationBodies(path string, operation str
 	return requestSchema, responseSchema, nil
 }
 
+// GetCreatePath returns the API path for creating resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetCreatePath() string {
 	path := r.ResourceInfo.ResourceSpec.Path
 	if path == "" {
@@ -61,6 +66,7 @@ func (r *resourceTemplateRenderer) GetCreatePath() string {
 	return path
 }
 
+// GetCreateMethod returns the HTTP method for creating resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetCreateMethod() string {
 	op := r.ProviderInfo.SpecDefaults.CreateMethod
 	if op == "" {
@@ -69,6 +75,7 @@ func (r *resourceTemplateRenderer) GetCreateMethod() string {
 	return op
 }
 
+// GetUpdatePath returns the API path for updating resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetUpdatePath() string {
 	path := r.ResourceInfo.ResourceSpec.Path
 	if path == "" {
@@ -77,6 +84,7 @@ func (r *resourceTemplateRenderer) GetUpdatePath() string {
 	return path
 }
 
+// GetUpdateMethod returns the HTTP method for updating resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetUpdateMethod() string {
 	op := r.ProviderInfo.SpecDefaults.UpdateMethod
 	if op == "" {
@@ -85,6 +93,7 @@ func (r *resourceTemplateRenderer) GetUpdateMethod() string {
 	return op
 }
 
+// GetDestroyPath returns the API path for deleting resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetDestroyPath() string {
 	path := r.ResourceInfo.ResourceSpec.Path
 	if path == "" {
@@ -93,6 +102,7 @@ func (r *resourceTemplateRenderer) GetDestroyPath() string {
 	return path
 }
 
+// GetDestroyMethod returns the HTTP method for deleting resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetDestroyMethod() string {
 	op := r.ProviderInfo.SpecDefaults.DestroyMethod
 	if op == "" {
@@ -101,6 +111,7 @@ func (r *resourceTemplateRenderer) GetDestroyMethod() string {
 	return op
 }
 
+// GetReadPath returns the API path for reading resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetReadPath() string {
 	path := r.ResourceInfo.ResourceSpec.Path
 	if path == "" {
@@ -109,6 +120,7 @@ func (r *resourceTemplateRenderer) GetReadPath() string {
 	return path
 }
 
+// GetReadMethod returns the HTTP method for reading resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetReadMethod() string {
 	op := r.ProviderInfo.SpecDefaults.ReadMethod
 	if op == "" {
@@ -117,6 +129,8 @@ func (r *resourceTemplateRenderer) GetReadMethod() string {
 	return op
 }
 
+// getPropertiesFromBodies extracts and merges properties from create and update request/response bodies.
+// It returns a list of augmented property schemas with metadata about which bodies contain each property.
 func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropertySchema, error) {
 	createRequestBody, createResponseBody, err := r.getOperationBodies(r.GetCreatePath(), r.GetCreateMethod())
 	if err != nil {
@@ -181,6 +195,7 @@ func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropert
 	return result, nil
 }
 
+// renderForEachProp applies a rendering function to each property and concatenates the results.
 func (r *resourceTemplateRenderer) renderForEachProp(f func(*augmentedPropertySchema) string) (string, error) {
 	properties, err := r.getPropertiesFromBodies()
 	if err != nil {
@@ -195,6 +210,7 @@ func (r *resourceTemplateRenderer) renderForEachProp(f func(*augmentedPropertySc
 	return result.String(), nil
 }
 
+// RenderModelDataFields generates Go struct field declarations for the Terraform resource model.
 func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 	return r.renderForEachProp(
 		func(prop *augmentedPropertySchema) string {
@@ -203,6 +219,7 @@ func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 	)
 }
 
+// RenderAttributeDefinitions generates Terraform schema attribute definitions for all resource properties.
 func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) {
 	return r.renderForEachProp(
 		func(prop *augmentedPropertySchema) string {
@@ -211,6 +228,7 @@ func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) 
 	)
 }
 
+// RenderFillCreateBody generates code to populate the API request body from Terraform state during resource creation.
 func (r *resourceTemplateRenderer) RenderFillCreateBody() (string, error) {
 	return r.renderForEachProp(
 		func(prop *augmentedPropertySchema) string {
@@ -219,6 +237,7 @@ func (r *resourceTemplateRenderer) RenderFillCreateBody() (string, error) {
 	)
 }
 
+// RenderUpdateDataWithCreateResponse generates code to update Terraform state from API response data after resource creation.
 func (r *resourceTemplateRenderer) RenderUpdateDataWithCreateResponse() (string, error) {
 	return r.renderForEachProp(
 		func(prop *augmentedPropertySchema) string {
@@ -227,10 +246,12 @@ func (r *resourceTemplateRenderer) RenderUpdateDataWithCreateResponse() (string,
 	)
 }
 
+// Render executes the resource template and returns the generated Go code.
 func (r *resourceTemplateRenderer) Render() ([]byte, error) {
 	return renderTemplateAs(r.name, resourceGoTemplate, r).Render()
 }
 
+// getResourceGoTemplate creates a template renderer for generating a Terraform resource implementation.
 func getResourceGoTemplate(providerInfo *ProviderInfo, resourceInfo *ResourceInfo) templateRenderer {
 	return &resourceTemplateRenderer{
 		name:         "internal/provider/resource.go",

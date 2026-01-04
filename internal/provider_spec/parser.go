@@ -13,6 +13,8 @@ import (
 //go:embed rest_api_provider_schema.json
 var restApiProviderSchemaJson []byte
 
+// ParseSpecFromFile reads a REST API provider specification from a YAML file and parses it.
+// It validates the file against the embedded JSON schema and returns a structured configuration.
 func ParseSpecFromFile(filename string) (RESTAPIProviderConfiguration, error) {
 	fileContents, err := os.ReadFile(filename)
 	if err != nil {
@@ -21,6 +23,8 @@ func ParseSpecFromFile(filename string) (RESTAPIProviderConfiguration, error) {
 	return ParseSpec(fileContents)
 }
 
+// ParseSpec parses a REST API provider specification from YAML bytes.
+// It converts the YAML to JSON, validates it against the embedded schema, and unmarshals it into a RESTAPIProviderConfiguration.
 func ParseSpec(fileContents []byte) (RESTAPIProviderConfiguration, error) {
 	spec := RESTAPIProviderConfiguration{}
 	rawJson, err := yaml.YAMLToJSON(fileContents)

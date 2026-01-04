@@ -9,6 +9,8 @@ import (
 	"github.com/cockroachdb/errors"
 )
 
+// RenderSpec generates Terraform provider code from the given provider and API specifications.
+// It creates all necessary files in the outputPath directory including templates, providers, and resources.
 func RenderSpec(
 	outputPath string,
 	providerSpec provider_spec.RESTAPIProviderConfiguration,

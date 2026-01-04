@@ -10,6 +10,7 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 )
 
+// augmentedPropertySchema represents a resource property with metadata about where it appears in request/response bodies.
 type augmentedPropertySchema struct {
 	Name                string
 	Schema              *base.Schema
@@ -32,6 +33,7 @@ const (
 	propertyTypeAny    = "any"
 )
 
+// mapJsonSchemaToInternal converts a JSON schema type to an internal property type constant.
 func mapJsonSchemaToInternal(jsonSchemaType string) string {
 	switch jsonSchemaType {
 	case "null":
@@ -55,6 +57,7 @@ func mapJsonSchemaToInternal(jsonSchemaType string) string {
 	}
 }
 
+// GetTopSchemaType returns the primary type of the property, handling nullable types appropriately.
 func (p *augmentedPropertySchema) GetTopSchemaType() string {
 	if slices.Contains(p.Schema.Type, "null") {
 		if len(p.Schema.Type) != 2 {
@@ -74,11 +77,13 @@ func (p *augmentedPropertySchema) GetTopSchemaType() string {
 	}
 }
 
+// IsNullable returns true if the property can be null.
 func (p *augmentedPropertySchema) IsNullable() bool {
 	hasNullableType := slices.Contains(p.Schema.Type, "null")
 	return (p.Schema.Nullable != nil && *p.Schema.Nullable) || hasNullableType
 }
 
+// GetTypeType returns the Terraform types package type name for this property (e.g., "String", "Int64").
 func (p *augmentedPropertySchema) GetTypeType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
@@ -97,6 +102,7 @@ func (p *augmentedPropertySchema) GetTypeType() string {
 	}
 }
 
+// GetSchemaType returns the Terraform schema attribute type for this property (e.g., "StringAttribute").
 func (p *augmentedPropertySchema) GetSchemaType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
@@ -115,6 +121,7 @@ func (p *augmentedPropertySchema) GetSchemaType() string {
 	}
 }
 
+// GetValidatorType returns the Terraform validator type for this property (e.g., "String", "Int64").
 func (p *augmentedPropertySchema) GetValidatorType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
@@ -133,6 +140,7 @@ func (p *augmentedPropertySchema) GetValidatorType() string {
 	}
 }
 
+// GetGoType returns the native Go type for this property (e.g., "string", "int64").
 func (p *augmentedPropertySchema) GetGoType() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeBool:
@@ -151,10 +159,12 @@ func (p *augmentedPropertySchema) GetGoType() string {
 	}
 }
 
+// RenderModelDataFields generates a Go struct field declaration for this property in the Terraform resource model.
 func (p *augmentedPropertySchema) RenderModelDataFields() string {
 	return fmt.Sprintf("%s types.%s `tfsdk:\"%s\"`", casing.Camel(p.Name), p.GetTypeType(), casing.Snake(p.Name))
 }
 
+// RenderAttributeDefinitions generates Terraform schema attribute definition code for this property.
 func (p *augmentedPropertySchema) RenderAttributeDefinitions() string {
 	schemaDef := fmt.Sprintf(
 		"schema.%s { Validators: []validator.%s { &OpenApiSchemaValidator{ operationPath: \"%s\", operationMethod: \"%s\", propertyName: \"%s\" } } },",
@@ -167,6 +177,7 @@ func (p *augmentedPropertySchema) RenderAttributeDefinitions() string {
 	return fmt.Sprintf(`"%s": %s`, p.Name, schemaDef)
 }
 
+// RenderFillCreateBody generates code to populate this property in the API request body during resource creation.
 func (p *augmentedPropertySchema) RenderFillCreateBody() string {
 	switch p.GetTopSchemaType() {
 	case propertyTypeAny:
@@ -182,6 +193,7 @@ requestBody["%[1]s"] = %[2]sUnpacked`
 	}
 }
 
+// RenderUpdateDataWithCreateResponse generates code to update Terraform state with this property's value from the API response.
 func (p *augmentedPropertySchema) RenderUpdateDataWithCreateResponse() string {
 	var fmtStr string
 	switch p.GetTopSchemaType() {
