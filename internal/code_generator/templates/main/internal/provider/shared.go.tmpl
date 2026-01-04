@@ -101,7 +101,7 @@ func (v *OpenApiSchemaValidator) validate(value any, attributePath path.Path, di
 		diagnostics.AddAttributeError(attributePath, err.Error(), err.Error())
 		return
 	}
-	valid, errs := SchemaValidator.ValidateSchemaObject(requestBodySchema, value)
+	_, _ = SchemaValidator.ValidateSchemaObject(requestBodySchema, value)
 	// TODO
 }
 

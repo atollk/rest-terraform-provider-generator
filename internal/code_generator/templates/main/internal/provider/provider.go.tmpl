@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"os"
 
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/path"
@@ -26,7 +25,7 @@ type Provider struct {
 // ProviderModel describes the provider data model.
 type ProviderModel struct {
 	BaseURL types.String `tfsdk:"base_url"`
-	Headers types.List   `tfsdk:"headers"`
+	Headers types.Map    `tfsdk:"headers"`
 }
 
 func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -66,18 +65,15 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 	if data.BaseURL.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("base_url"),
-			"Unknown {{.ProviderInfo.NameKebab}} API Base URL",
-			"The provider cannot create the {{.ProviderInfo.NameKebab}} API client as there is an unknown configuration value for the {{.ProviderInfo.NameKebab}} API base URL. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the {{.ProviderInfo.NameCaps}}_BASE_URL environment variable.",
+			"Unknown value for provider config: Base URL",
+			"Unknown value for provider config: Base URL",
 		)
 	}
-
-	if data.APIKey.IsUnknown() {
+	if data.Headers.IsUnknown() {
 		resp.Diagnostics.AddAttributeError(
-			path.Root("api_key"),
-			"Unknown {{.ProviderInfo.NameKebab}} API Key",
-			"The provider cannot create the {{.ProviderInfo.NameKebab}} API client as there is an unknown configuration value for the {{.ProviderInfo.NameKebab}} API key. "+
-				"Either target apply the source of the value first, set the value statically in the configuration, or use the {{.ProviderInfo.NameCaps}}_API_KEY environment variable.",
+			path.Root("headers"),
+			"Unknown value for provider config: headers",
+			"Unknown value for provider config: headers",
 		)
 	}
 
@@ -85,50 +81,58 @@ func (p *Provider) Configure(ctx context.Context, req provider.ConfigureRequest,
 		return
 	}
 
-	// Default values to environment variables, but override
-	// with Terraform configuration value if set.
-
-	baseURL := os.Getenv("{{.ProviderInfo.NameCaps}}_BASE_URL")
-	apiKey := os.Getenv("{{.ProviderInfo.NameCaps}}_API_KEY")
-
+	// Read config values
+	var baseUrl string
 	if !data.BaseURL.IsNull() {
-		baseURL = data.BaseURL.ValueString()
-	}
-
-	if !data.APIKey.IsNull() {
-		apiKey = data.APIKey.ValueString()
-	}
-
-	// If any of the expected configurations are missing, return
-	// errors with provider-specific guidance.
-
-	if baseURL == "" {
+		baseUrl = data.BaseURL.ValueString()
+	} else {
 		resp.Diagnostics.AddAttributeError(
 			path.Root("base_url"),
-			"Missing {{.ProviderInfo.NameKebab}} API Base URL",
-			"The provider cannot create the {{.ProviderInfo.NameKebab}} API client as there is a missing or empty value for the {{.ProviderInfo.NameKebab}} API base URL. "+
-				"Set the base_url value in the configuration or use the {{.ProviderInfo.NameCaps}}_BASE_URL environment variable. "+
-				"If either is already set, ensure the value is not empty.",
+			"Missing API Base URL",
+			"Missing API Base URL",
 		)
+	}
+
+	headers := make(map[string]string)
+	if !data.BaseURL.IsNull() {
+		headersValue, errs := data.Headers.ToMapValue(ctx)
+		if errs.HasError() {
+			resp.Diagnostics.AddAttributeError(
+				path.Root("headers"),
+				"Error while reading headers",
+				fmt.Sprintf("Error while reading headers: %v", errs.Errors()),
+			)
+		}
+		for k, v := range headersValue.Elements() {
+			if v, ok := v.(basetypes.StringValue); ok {
+				headers[k] = v.ValueString()
+			} else {
+				resp.Diagnostics.AddAttributeError(
+					path.Root("headers/" + k),
+					"Error while reading header " + k,
+					fmt.Sprintf("Error while reading header %s: %v", k, errs.Errors()),
+				)
+			}
+		}
 	}
 
 	if resp.Diagnostics.HasError() {
 		return
 	}
 
-	// Create a new {{.ProviderInfo.NameKebab}} client using the configuration values
-	client := client.NewClient(baseURL, apiKey)
-
-	// Make the {{.ProviderInfo.NameKebab}} client available during DataSource and Resource
-	// type Configure methods.
-	resp.DataSourceData = client
-	resp.ResourceData = client
+	// Create a new pet-store client using the configuration values
+	config := HTTPConfig{
+		BaseURL: baseUrl,
+		Headers: headers,
+	}
+	resp.DataSourceData = config
+	resp.ResourceData = config
 }
 
 func (p *Provider) Resources(ctx context.Context) []func() resource.Resource {
 	return []func() resource.Resource{
 	{{range $_, $resource := .Resources}}
-	    New{{$resource.NamePascal}},
+	    New{{$resource.NamePascal}}Resource,
     {{end}}
 	}
 }
