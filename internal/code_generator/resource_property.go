@@ -1,6 +1,7 @@
 package code_generator
 
 import (
+	"atollk/terraform-api-provider-generator/internal/provider_spec"
 	_ "embed"
 	"fmt"
 	"slices"
@@ -170,8 +171,8 @@ func (p *augmentedPropertySchema) RenderAttributeDefinitions() string {
 		"schema.%s { Validators: []validator.%s { &OpenApiSchemaValidator{ operationPath: \"%s\", operationMethod: \"%s\", propertyName: \"%s\" } } },",
 		p.GetSchemaType(),
 		p.GetValidatorType(),
-		p.parent.GetCreatePath(),
-		p.parent.GetCreateMethod(),
+		p.parent.ResourceInfo.ResourceSpec().GetOperationPath(provider_spec.Create, p.parent.ProviderInfo.SpecDefaults),
+		p.parent.ResourceInfo.ResourceSpec().GetOperationMethod(provider_spec.Create, p.parent.ProviderInfo.SpecDefaults),
 		p.Name,
 	)
 	return fmt.Sprintf(`"%s": %s`, p.Name, schemaDef)

@@ -1,6 +1,7 @@
 package code_generator
 
 import (
+	"atollk/terraform-api-provider-generator/internal/provider_spec"
 	_ "embed"
 	"fmt"
 	"slices"
@@ -85,80 +86,32 @@ func (r *resourceTemplateRenderer) GetCreateMethod() string {
 
 // GetUpdatePath returns the API path for updating resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetUpdatePath() string {
-	path := ""
-	opSpec := r.ResourceInfo.ResourceSpec().Update
-	if opSpec != nil {
-		path = opSpec.Path
-	}
-	if path == "" {
-		idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
-		if idAttribute == "" {
-			idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
-		}
-		path = fmt.Sprintf("%s/{%s}", r.ResourceInfo.ResourceSpec().Path, idAttribute)
-	}
-	return path
+	return r.ResourceInfo.ResourceSpec().GetOperationPath(provider_spec.Update, r.ProviderInfo.SpecDefaults)
 }
 
 // GetUpdateMethod returns the HTTP method for updating resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetUpdateMethod() string {
-	op := r.ProviderInfo.SpecDefaults.UpdateMethod
-	if op == "" {
-		op = r.ResourceInfo.ResourceSpec().Update.Method
-	}
-	return op
+	return r.ResourceInfo.ResourceSpec().GetOperationMethod(provider_spec.Update, r.ProviderInfo.SpecDefaults)
 }
 
 // GetDestroyPath returns the API path for deleting resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetDestroyPath() string {
-	path := ""
-	opSpec := r.ResourceInfo.ResourceSpec().Destroy
-	if opSpec != nil {
-		path = opSpec.Path
-	}
-	if path == "" {
-		idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
-		if idAttribute == "" {
-			idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
-		}
-		path = fmt.Sprintf("%s/{%s}", r.ResourceInfo.ResourceSpec().Path, idAttribute)
-	}
-	return path
+	return r.ResourceInfo.ResourceSpec().GetOperationPath(provider_spec.Delete, r.ProviderInfo.SpecDefaults)
 }
 
 // GetDestroyMethod returns the HTTP method for deleting resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetDestroyMethod() string {
-	op := r.ProviderInfo.SpecDefaults.DestroyMethod
-	if op == "" {
-		op = r.ResourceInfo.ResourceSpec().Destroy.Method
-	}
-	return op
+	return r.ResourceInfo.ResourceSpec().GetOperationMethod(provider_spec.Delete, r.ProviderInfo.SpecDefaults)
 }
 
 // GetReadPath returns the API path for reading resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetReadPath() string {
-	path := ""
-	opSpec := r.ResourceInfo.ResourceSpec().Read
-	if opSpec != nil {
-		path = opSpec.Path
-	}
-	if path == "" {
-		idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
-		if idAttribute == "" {
-			idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
-		}
-		path = fmt.Sprintf("%s/{%s}", r.ResourceInfo.ResourceSpec().Path, idAttribute)
-	}
-	return path
+	return r.ResourceInfo.ResourceSpec().GetOperationPath(provider_spec.Read, r.ProviderInfo.SpecDefaults)
 }
 
 // GetReadMethod returns the HTTP method for reading resources, preferring resource-specific configuration over provider defaults.
 func (r *resourceTemplateRenderer) GetReadMethod() string {
-	op := r.ProviderInfo.SpecDefaults.ReadMethod
-	if op == "" {
-		op = r.ResourceInfo.ResourceSpec().Read.Method
-	}
-	return op
+	return r.ResourceInfo.ResourceSpec().GetOperationMethod(provider_spec.Read, r.ProviderInfo.SpecDefaults)
 }
 
 // getPropertiesFromBodies extracts and merges properties from create and update request/response bodies.
@@ -303,7 +256,7 @@ func (r *resourceTemplateRenderer) RenderCreateRequestUrlExpression() (string, e
 	}
 
 	fmtStr := `strings.Replace(fmt.Sprintf("%%s%s", r.baseURL), "{%s}", fmt.Sprintf("%%v", data.%s.Value%s()), -1)`
-	result := fmt.Sprintf(fmtStr, r.GetCreatePath(), r.ResourceInfo.ResourceSpec().IdAttributePath, casing.Camel(idProp.Name), idProp.GetTypeType())
+	result := fmt.Sprintf(fmtStr, r.ResourceInfo.ResourceSpec().GetOperationPath(provider_spec.Create, r.ProviderInfo.SpecDefaults), r.ResourceInfo.ResourceSpec().IdAttributePath, casing.Camel(idProp.Name), idProp.GetTypeType())
 	return result, nil
 }
 

@@ -1,0 +1,9 @@
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - gofumpt
+    - goimports
+    - golines
+  exclusions:
+    - "internal/provider_spec/provider_schema.go"
