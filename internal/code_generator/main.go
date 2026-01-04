@@ -22,14 +22,28 @@ func RenderSpec(
 		Name:         "pet_store",
 		SpecDefaults: providerSpec.GlobalDefaults,
 	}
-	resources := []ResourceInfo{
-		{
-			Name:         "res_one",
-			ResourceSpec: providerSpec.Resources.OtherProps["pet"],
-			OADoc:        apiSpec,
-		},
-	}
+	var resources []ResourceInfo
 	var dataSources []DataSourceInfo
+	for name, spec := range providerSpec.Resources.OtherProps {
+		resource := ResourceInfo{
+			name:         name,
+			resourceSpec: spec,
+			oadoc:        apiSpec,
+			providerInfo: &providerInfo,
+		}
+		dataSource := DataSourceInfo{
+			name:         name,
+			resourceSpec: spec,
+			oadoc:        apiSpec,
+			providerInfo: &providerInfo,
+		}
+		if spec.GenerateResource == nil || *spec.GenerateResource {
+			resources = append(resources, resource)
+		}
+		if spec.GenerateDataSource == nil || *spec.GenerateDataSource {
+			dataSources = append(dataSources, dataSource)
+		}
+	}
 
 	// Map output file names to templates
 	templates := []templateRenderer{
@@ -41,7 +55,10 @@ func RenderSpec(
 		getProviderGoTemplate(&providerInfo, resources, dataSources),
 	}
 	for _, resource := range resources {
-		templates = append(templates, getResourceGoTemplate(&providerInfo, &resource))
+		templates = append(templates, getResourceGoTemplate(&providerInfo, &resource, false))
+	}
+	for _, dataSource := range dataSources {
+		templates = append(templates, getResourceGoTemplate(&providerInfo, &dataSource, true))
 	}
 
 	// Write out files

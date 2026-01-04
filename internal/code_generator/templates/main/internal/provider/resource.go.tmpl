@@ -7,43 +7,57 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
+	"strings"
 	"time"
 
 	"github.com/hashicorp/terraform-plugin-framework/path"
+{{if .IsDataSource}}
+	resource "github.com/hashicorp/terraform-plugin-framework/datasource"
+	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
+{{else}}
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource/schema/planmodifier"
+{{end}}
 	"github.com/hashicorp/terraform-plugin-framework/schema/validator"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-framework/types/basetypes"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
-var _ resource.Resource = &{{.ResourceInfo.NamePascal}}Resource{}
-var _ resource.ResourceWithImportState = &{{.ResourceInfo.NamePascal}}Resource{}
+{{if .IsDataSource}}
+var _ resource.DataSource = &{{.ResourceInfo.NamePascal}}DataSource{}
 
-func New{{.ResourceInfo.NamePascal}}Resource() resource.Resource {
-	return &{{.ResourceInfo.NamePascal}}Resource{}
+func New{{.ResourceInfo.MainTypeName}}() resource.DataSource {
+    return &{{.ResourceInfo.MainTypeName}}{}
 }
+{{else}}
+var _ resource.Resource = &{{.ResourceInfo.MainTypeName}}{}
+var _ resource.ResourceWithImportState = &{{.ResourceInfo.MainTypeName}}{}
 
-// {{.ResourceInfo.NamePascal}}Resource defines the resource implementation.
-type {{.ResourceInfo.NamePascal}}Resource struct {
+func New{{.ResourceInfo.MainTypeName}}() resource.Resource {
+    return &{{.ResourceInfo.MainTypeName}}{}
+}
+{{end}}
+
+
+// {{.ResourceInfo.MainTypeName}} defines the resource implementation.
+type {{.ResourceInfo.MainTypeName}} struct {
 	baseURL    string
 	headers    map[string]string
 	httpClient *http.Client
 }
 
-// {{.ResourceInfo.NamePascal}}ResourceModel describes the resource data model.
-type {{.ResourceInfo.NamePascal}}ResourceModel struct {
+// {{.ResourceInfo.MainTypeName}}Model describes the resource data model.
+type {{.ResourceInfo.MainTypeName}}Model struct {
     {{.RenderModelDataFields}}
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
+func (r *{{.ResourceInfo.MainTypeName}}) Metadata(ctx context.Context, req resource.MetadataRequest, resp *resource.MetadataResponse) {
 	resp.TypeName = req.ProviderTypeName + "_{{.ResourceInfo.NameSnake}}"
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
+func (r *{{.ResourceInfo.MainTypeName}}) Schema(ctx context.Context, req resource.SchemaRequest, resp *resource.SchemaResponse) {
 	resp.Schema = schema.Schema{
 		// This description is used by the documentation generator and the language server.
 		MarkdownDescription: "{{.ResourceInfo.NamePascal}} resource",
@@ -54,13 +68,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Schema(ctx context.Context, req r
 	}
 }
 
-// HTTPConfig holds HTTP client configuration
-type HTTPConfig struct {
-	BaseURL string
-	Headers map[string]string
-}
-
-func (r *{{.ResourceInfo.NamePascal}}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
+func (r *{{.ResourceInfo.MainTypeName}}) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
 	// Prevent panic if the provider has not been configured.
 	if req.ProviderData == nil {
 		return
@@ -85,7 +93,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Configure(ctx context.Context, re
 }
 
 // doRequest performs an HTTP request and returns the response body
-func (r *{{.ResourceInfo.NamePascal}}Resource) doRequest(method, url string, body map[string]interface{}) (map[string]interface{}, error) {
+func (r *{{.ResourceInfo.MainTypeName}}) doRequest(method, url string, body map[string]interface{}) (map[string]interface{}, error) {
 	var reqBody io.Reader
 	if body != nil {
 		data, err := json.Marshal(body)
@@ -132,8 +140,9 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) doRequest(method, url string, bod
 	return result, nil
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
-	var data {{.ResourceInfo.NamePascal}}ResourceModel
+{{if not .IsDataSource}}
+func (r *{{.ResourceInfo.MainTypeName}}) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) {
+	var data {{.ResourceInfo.MainTypeName}}Model
 
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -147,7 +156,8 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req r
 	{{.RenderFillCreateBody}}
 
 	// Send the request
-	responseBody, err := r.doRequest("{{.GetCreateMethod}}", fmt.Sprintf("%s{{.GetCreatePath}}", r.baseURL), requestBody)
+	requestUrl := {{.RenderCreateRequestUrlExpression}}
+	responseBody, err := r.doRequest("{{.GetCreateMethod}}", requestUrl, requestBody)
 	if err != nil {
 		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to create resource, got error: %s", err))
 		return
@@ -160,8 +170,8 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
-	var data {{.ResourceInfo.NamePascal}}ResourceModel
+func (r *{{.ResourceInfo.MainTypeName}}) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
+	var data {{.ResourceInfo.MainTypeName}}Model
 
 	// Read Terraform plan data into the model
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &data)...)
@@ -188,8 +198,8 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Update(ctx context.Context, req r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
-	var data {{.ResourceInfo.NamePascal}}ResourceModel
+func (r *{{.ResourceInfo.MainTypeName}}) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) {
+	var data {{.ResourceInfo.MainTypeName}}Model
 
 	// Read Terraform prior state data into the model
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
@@ -205,12 +215,17 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Delete(ctx context.Context, req r
 		return
 	}
 }
+{{end}}
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data {{.ResourceInfo.NamePascal}}ResourceModel
+func (r *{{.ResourceInfo.MainTypeName}}) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data {{.ResourceInfo.MainTypeName}}Model
 
 	// Read Terraform prior state data into the model
+{{if .IsDataSource}}
+	resp.Diagnostics.Append(req.Config.Get(ctx, &data)...)
+{{else}}
 	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+{{end}}
 
 	if resp.Diagnostics.HasError() {
 		return
@@ -230,9 +245,11 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Read(ctx context.Context, req res
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
+{{if not .IsDataSource}}
+func (r *{{.ResourceInfo.MainTypeName}}) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
     resp.Diagnostics.AddError(
         "Import currently unsupported",
         "Import currently unsupported",
     )
 }
+{{end}}

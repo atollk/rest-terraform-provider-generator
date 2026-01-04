@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/danielgtaylor/casing"
 	"github.com/kaptinlin/messageformat-go/pkg/logger"
 	"github.com/pb33f/libopenapi/datamodel/high/base"
 	"github.com/pb33f/libopenapi/orderedmap"
+	"github.com/samber/lo"
 )
 
 //go:embed templates/main/internal/provider/resource.go.tmpl
@@ -19,7 +21,8 @@ var resourceGoTemplate string
 type resourceTemplateRenderer struct {
 	name         string
 	ProviderInfo *ProviderInfo
-	ResourceInfo *ResourceInfo
+	ResourceInfo ResourceDataSourceInfo
+	IsDataSource bool
 }
 
 // Name returns the output file name for this resource template.
@@ -30,21 +33,22 @@ func (r *resourceTemplateRenderer) Name() string {
 // getOperationBodies extracts the request and response schemas for a given OpenAPI operation.
 // It returns the request schema, response schema, and any error encountered.
 func (r *resourceTemplateRenderer) getOperationBodies(path string, operation string) (*base.Schema, *base.Schema, error) {
-	pathObject, present := r.ResourceInfo.OADoc.Model.Paths.PathItems.Get(path)
+	pathObject, present := r.ResourceInfo.OADoc().Model.Paths.PathItems.Get(path)
 	if !present {
-		return nil, nil, errors.Errorf("could not find expected path %v", path)
+		return nil, nil, errors.Errorf("could not find expected path %s", path)
 	}
-	op, present := pathObject.GetOperations().Get(strings.ToLower(operation))
+	opName := strings.ToLower(operation)
+	op, present := pathObject.GetOperations().Get(opName)
 	if !present {
-		return nil, nil, errors.Errorf("could not find expected operation %v", operation)
+		return nil, nil, errors.Errorf("could not find expected operation %s at path %s", opName, path)
 	}
 	requestContent, present := op.RequestBody.Content.Get("application/json")
 	if !present {
-		return nil, nil, errors.Errorf("could not find expected request content type %v", "application/json")
+		return nil, nil, errors.Errorf("could not find expected request content type %s at operation %s at path %s", "application/json", opName, path)
 	}
 	responseContent, present := op.RequestBody.Content.Get("application/json")
 	if !present {
-		return nil, nil, errors.Errorf("could not find expected response content type %v", "application/json")
+		return nil, nil, errors.Errorf("could not find expected response content type %s at operation %s at path %s", "application/json", opName, path)
 	}
 	requestSchema := requestContent.Schema.Schema()
 	if requestSchema == nil {
@@ -59,9 +63,13 @@ func (r *resourceTemplateRenderer) getOperationBodies(path string, operation str
 
 // GetCreatePath returns the API path for creating resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetCreatePath() string {
-	path := r.ResourceInfo.ResourceSpec.Path
+	path := ""
+	opSpec := r.ResourceInfo.ResourceSpec().Create
+	if opSpec != nil {
+		path = opSpec.Path
+	}
 	if path == "" {
-		path = r.ResourceInfo.ResourceSpec.Create.Path
+		path = r.ResourceInfo.ResourceSpec().Path
 	}
 	return path
 }
@@ -70,16 +78,24 @@ func (r *resourceTemplateRenderer) GetCreatePath() string {
 func (r *resourceTemplateRenderer) GetCreateMethod() string {
 	op := r.ProviderInfo.SpecDefaults.CreateMethod
 	if op == "" {
-		op = r.ResourceInfo.ResourceSpec.Create.Method
+		op = r.ResourceInfo.ResourceSpec().Create.Method
 	}
 	return op
 }
 
 // GetUpdatePath returns the API path for updating resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetUpdatePath() string {
-	path := r.ResourceInfo.ResourceSpec.Path
+	path := ""
+	opSpec := r.ResourceInfo.ResourceSpec().Update
+	if opSpec != nil {
+		path = opSpec.Path
+	}
 	if path == "" {
-		path = r.ResourceInfo.ResourceSpec.Update.Path
+		idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
+		if idAttribute == "" {
+			idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
+		}
+		path = fmt.Sprintf("%s/{%s}", r.ResourceInfo.ResourceSpec().Path, idAttribute)
 	}
 	return path
 }
@@ -88,16 +104,24 @@ func (r *resourceTemplateRenderer) GetUpdatePath() string {
 func (r *resourceTemplateRenderer) GetUpdateMethod() string {
 	op := r.ProviderInfo.SpecDefaults.UpdateMethod
 	if op == "" {
-		op = r.ResourceInfo.ResourceSpec.Update.Method
+		op = r.ResourceInfo.ResourceSpec().Update.Method
 	}
 	return op
 }
 
 // GetDestroyPath returns the API path for deleting resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetDestroyPath() string {
-	path := r.ResourceInfo.ResourceSpec.Path
+	path := ""
+	opSpec := r.ResourceInfo.ResourceSpec().Destroy
+	if opSpec != nil {
+		path = opSpec.Path
+	}
 	if path == "" {
-		path = r.ResourceInfo.ResourceSpec.Destroy.Path
+		idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
+		if idAttribute == "" {
+			idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
+		}
+		path = fmt.Sprintf("%s/{%s}", r.ResourceInfo.ResourceSpec().Path, idAttribute)
 	}
 	return path
 }
@@ -106,16 +130,24 @@ func (r *resourceTemplateRenderer) GetDestroyPath() string {
 func (r *resourceTemplateRenderer) GetDestroyMethod() string {
 	op := r.ProviderInfo.SpecDefaults.DestroyMethod
 	if op == "" {
-		op = r.ResourceInfo.ResourceSpec.Destroy.Method
+		op = r.ResourceInfo.ResourceSpec().Destroy.Method
 	}
 	return op
 }
 
 // GetReadPath returns the API path for reading resources, using the resource-specific path if defined.
 func (r *resourceTemplateRenderer) GetReadPath() string {
-	path := r.ResourceInfo.ResourceSpec.Path
+	path := ""
+	opSpec := r.ResourceInfo.ResourceSpec().Read
+	if opSpec != nil {
+		path = opSpec.Path
+	}
 	if path == "" {
-		path = r.ResourceInfo.ResourceSpec.Read.Path
+		idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
+		if idAttribute == "" {
+			idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
+		}
+		path = fmt.Sprintf("%s/{%s}", r.ResourceInfo.ResourceSpec().Path, idAttribute)
 	}
 	return path
 }
@@ -124,7 +156,7 @@ func (r *resourceTemplateRenderer) GetReadPath() string {
 func (r *resourceTemplateRenderer) GetReadMethod() string {
 	op := r.ProviderInfo.SpecDefaults.ReadMethod
 	if op == "" {
-		op = r.ResourceInfo.ResourceSpec.Read.Method
+		op = r.ResourceInfo.ResourceSpec().Read.Method
 	}
 	return op
 }
@@ -136,19 +168,29 @@ func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropert
 	if err != nil {
 		return nil, errors.Errorf("could not get request/response bodies for create: %w", err)
 	}
-	updateRequestBody, updateResponseBody, err := r.getOperationBodies(r.GetUpdatePath(), r.GetUpdateMethod())
-	if err != nil {
-		return nil, errors.Errorf("could not get request/response bodies for update: %w", err)
-	}
-	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") || !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
+	if !slices.Contains(createRequestBody.Type, "object") || !slices.Contains(createResponseBody.Type, "object") {
 		return nil, errors.Errorf("only object types are supported for request/response bodies")
 	}
-	for bodyName, schemaType := range map[string][]string{
+	var updateRequestBody *base.Schema
+	var updateResponseBody *base.Schema
+	if !r.ResourceInfo.ResourceSpec().ForceRecreate {
+		updateRequestBody, updateResponseBody, err = r.getOperationBodies(r.GetUpdatePath(), r.GetUpdateMethod())
+		if err != nil {
+			return nil, errors.Errorf("could not get request/response bodies for update: %w", err)
+		}
+		if !slices.Contains(updateRequestBody.Type, "object") || !slices.Contains(updateResponseBody.Type, "object") {
+			return nil, errors.Errorf("only object types are supported for request/response bodies")
+		}
+	}
+	dynamicTypeChecks := map[string][]string{
 		"create request":  createRequestBody.Type,
 		"create response": createResponseBody.Type,
-		"update request":  updateRequestBody.Type,
-		"update response": updateResponseBody.Type,
-	} {
+	}
+	if updateRequestBody != nil {
+		dynamicTypeChecks["update request"] = updateRequestBody.Type
+		dynamicTypeChecks["update response"] = updateResponseBody.Type
+	}
+	for bodyName, schemaType := range dynamicTypeChecks {
 		if !slices.Equal(schemaType, []string{"object"}) || slices.Equal(schemaType, []string{"object", "null"}) || slices.Equal(schemaType, []string{"null", "object"}) {
 			logger.Warn(fmt.Sprintf("%s body has unexpected schema type %v; will default to dynamic type", bodyName, schemaType))
 			return nil, nil
@@ -179,13 +221,15 @@ func (r *resourceTemplateRenderer) getPropertiesFromBodies() ([]augmentedPropert
 	if err != nil {
 		return nil, err
 	}
-	err = parsePropertiesForBody("update request", updateRequestBody, augmentedPropertySchemaUpdateRequest)
-	if err != nil {
-		return nil, err
-	}
-	err = parsePropertiesForBody("update response", updateResponseBody, augmentedPropertySchemaUpdateResponse)
-	if err != nil {
-		return nil, err
+	if updateRequestBody != nil {
+		err = parsePropertiesForBody("update request", updateRequestBody, augmentedPropertySchemaUpdateRequest)
+		if err != nil {
+			return nil, err
+		}
+		err = parsePropertiesForBody("update response", updateResponseBody, augmentedPropertySchemaUpdateResponse)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	var result []augmentedPropertySchema
@@ -240,6 +284,29 @@ func (r *resourceTemplateRenderer) RenderAttributeDefinitions() (string, error) 
 	)
 }
 
+func (r *resourceTemplateRenderer) RenderCreateRequestUrlExpression() (string, error) {
+	properties, err := r.getPropertiesFromBodies()
+	if err != nil {
+		return "", errors.Errorf("could not get body properties: %w", err)
+	}
+
+	idAttribute := r.ResourceInfo.ResourceSpec().IdAttribute
+	if idAttribute == "" {
+		idAttribute = r.ProviderInfo.SpecDefaults.IdAttribute
+	}
+	if idAttribute == "" {
+		idAttribute = "id"
+	}
+	idProp, found := lo.Find(properties, func(p augmentedPropertySchema) bool { return p.Name == idAttribute })
+	if !found {
+		return "", fmt.Errorf("could not find property with id_attribute name %s", idAttribute)
+	}
+
+	fmtStr := `strings.Replace(fmt.Sprintf("%%s%s", r.baseURL), "{%s}", fmt.Sprintf("%%v", data.%s.Value%s()), -1)`
+	result := fmt.Sprintf(fmtStr, r.GetCreatePath(), r.ResourceInfo.ResourceSpec().IdAttributePath, casing.Camel(idProp.Name), idProp.GetTypeType())
+	return result, nil
+}
+
 // RenderFillCreateBody generates code to populate the API request body from Terraform state during resource creation.
 func (r *resourceTemplateRenderer) RenderFillCreateBody() (string, error) {
 	return r.renderForEachProp(
@@ -291,10 +358,17 @@ func (r *resourceTemplateRenderer) Render() ([]byte, error) {
 }
 
 // getResourceGoTemplate creates a template renderer for generating a Terraform resource implementation.
-func getResourceGoTemplate(providerInfo *ProviderInfo, resourceInfo *ResourceInfo) templateRenderer {
+func getResourceGoTemplate(providerInfo *ProviderInfo, resourceInfo ResourceDataSourceInfo, isDataSource bool) templateRenderer {
+	var namePrefix string
+	if isDataSource {
+		namePrefix = "data_source"
+	} else {
+		namePrefix = "resource"
+	}
 	return &resourceTemplateRenderer{
-		name:         "internal/provider/resource.go",
+		name:         fmt.Sprintf("internal/provider/%s_%s.go", namePrefix, resourceInfo.NameSnake()),
 		ProviderInfo: providerInfo,
 		ResourceInfo: resourceInfo,
+		IsDataSource: isDataSource,
 	}
 }

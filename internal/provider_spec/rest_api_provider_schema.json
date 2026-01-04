@@ -45,24 +45,12 @@
         },
         "id_attribute": {
           "type": "string",
-          "description": "When set, this key will be used to operate on REST objects. For example, if the ID is set to 'name', changes to the API object will be to http://foo.com/bar/VALUE_OF_NAME. This value may also be a '/'-delimited path to the id attribute if it is multiple levels deep in the data (such as attributes/id in the case of an object { \"attributes\": { \"id\": 1234 }, \"config\": { \"name\": \"foo\", \"something\": \"bar\" } }"
+          "description": "When set, this key will be used to operate on REST objects. For example, if the ID is set to 'name', changes to the API object will be to http://foo.com/bar/VALUE_OF_NAME."
         }
       }
     },
     "resources": {
       "type": "object",
-      "properties": {
-        "generate_resource": {
-          "type": "boolean",
-          "default": true,
-          "description": "Defaults to true. Whether to generate a Terraform resource type for this API object."
-        },
-        "generate_data_source": {
-          "type": "boolean",
-          "default": true,
-          "description": "Defaults to true. Whether to generate a Terraform data source type for this API object."
-        }
-      },
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -70,6 +58,16 @@
           "path"
         ],
         "properties": {
+          "generate_resource": {
+            "type": "boolean",
+            "default": true,
+            "description": "Defaults to true. Whether to generate a Terraform resource type for this API object."
+          },
+          "generate_data_source": {
+            "type": "boolean",
+            "default": true,
+            "description": "Defaults to true. Whether to generate a Terraform data source type for this API object."
+          },
           "path": {
             "type": "string",
             "description": "The API path on top of the base URL set in the provider that represents objects of this type on the API server."
@@ -98,7 +96,7 @@
               },
               "path": {
                 "type": "string",
-                "description": "Defaults to {path}. The API path that represents where to CREATE (POST) objects of this type on the API server. The string {id} will be replaced with the terraform ID of the object if the data contains the id_attribute."
+                "description": "Defaults to {path}/{id_attribute}. The API path that represents where to UPDATE (PUT) objects of this type on the API server. The string {id} will be replaced with the terraform ID of the object if the data contains the id_attribute."
               }
             }
           },
@@ -112,7 +110,7 @@
               },
               "path": {
                 "type": "string",
-                "description": "Defaults to {path}. The API path that represents where to CREATE (POST) objects of this type on the API server. The string {id} will be replaced with the terraform ID of the object if the data contains the id_attribute."
+                "description": "Defaults to {path}/{id_attribute}. The API path that represents where to DESTROY (DELETE) objects of this type on the API server. The string {id} will be replaced with the terraform ID of the object if the data contains the id_attribute."
               }
             }
           },
@@ -126,7 +124,7 @@
               },
               "path": {
                 "type": "string",
-                "description": "Defaults to {path}. The API path that represents where to CREATE (POST) objects of this type on the API server. The string {id} will be replaced with the terraform ID of the object if the data contains the id_attribute."
+                "description": "Defaults to {path}/{id_attribute}. The API path that represents where to READ (GET) objects of this type on the API server. The string {id} will be replaced with the terraform ID of the object if the data contains the id_attribute."
               },
               "search": {
                 "type": "object",
@@ -179,12 +177,16 @@
           },
           "id_attribute": {
             "type": "string",
-            "description": "Defaults to id_attribute set on the provider. Allows per-resource override of id_attribute (see id_attribute provider config documentation)"
+            "description": "Defaults to {id_attribute} set on the provider. Allows per-resource override of id_attribute (see id_attribute provider config documentation)."
+          },
+          "id_attribute_path": {
+            "type": "string",
+            "description": "Defaults to {id_attribute}. The string '{id_attribute_path}' in the path names is replaced with the object ID. Use this in combination with `id_attribute` if the name of the ID attribute differs in the body schemas compared to path variables."
           },
           "ignore_all_server_changes": {
             "type": "boolean",
             "default": false,
-            "description": "By default Terraform will attempt to revert changes to remote resources. Set this to 'true' to ignore any remote changes. Default: false"
+            "description": "By default, Terraform will attempt to revert changes to remote resources. Set this to 'true' to ignore any remote changes. Default: false"
           },
           "ignore_changes_to": {
             "type": "array",

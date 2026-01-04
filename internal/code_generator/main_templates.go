@@ -5,6 +5,7 @@ import (
 	"atollk/terraform-api-provider-generator/internal/provider_spec"
 	"bytes"
 	_ "embed"
+	"fmt"
 	"strings"
 	"text/template"
 
@@ -28,36 +29,88 @@ func (p *ProviderInfo) NameCaps() string {
 	return strings.ToUpper(p.NameKebab())
 }
 
+type ResourceDataSourceInfo interface {
+	ParentProviderInfo() *ProviderInfo
+	Name() string
+	NameSnake() string
+	NamePascal() string
+	MainTypeName() string
+	OADoc() oas_parser.OADoc
+	ResourceSpec() *provider_spec.ResourceSchema
+}
+
 // ResourceInfo contains metadata and configuration for a Terraform resource.
 type ResourceInfo struct {
-	Name         string
-	ResourceSpec provider_spec.ResourceSchema
-	OADoc        oas_parser.OADoc
+	name         string
+	resourceSpec provider_spec.ResourceSchema
+	oadoc        oas_parser.OADoc
+	providerInfo *ProviderInfo
+}
+
+func (r *ResourceInfo) Name() string {
+	return r.name
 }
 
 // NameSnake returns the resource name in snake_case format.
 func (r *ResourceInfo) NameSnake() string {
-	return casing.Snake(r.Name)
+	return casing.Snake(r.name)
 }
 
 // NamePascal returns the resource name in PascalCase format.
 func (r *ResourceInfo) NamePascal() string {
-	return casing.Camel(r.Name)
+	return casing.Camel(r.name)
 }
+
+func (r *ResourceInfo) MainTypeName() string { return fmt.Sprintf("%sResource", r.NamePascal()) }
+
+func (r *ResourceInfo) OADoc() oas_parser.OADoc {
+	return r.oadoc
+}
+
+func (r *ResourceInfo) ParentProviderInfo() *ProviderInfo {
+	return r.providerInfo
+}
+
+func (r *ResourceInfo) ResourceSpec() *provider_spec.ResourceSchema {
+	return &r.resourceSpec
+}
+
+var _ ResourceDataSourceInfo = &ResourceInfo{}
 
 // DataSourceInfo contains metadata for a Terraform data source.
 type DataSourceInfo struct {
-	Name string
+	name         string
+	resourceSpec provider_spec.ResourceSchema
+	oadoc        oas_parser.OADoc
+	providerInfo *ProviderInfo
 }
 
-// NameSnake returns the data source name in snake_case format.
+func (d *DataSourceInfo) Name() string {
+	return d.name
+}
+
+// NameSnake returns the resource name in snake_case format.
 func (d *DataSourceInfo) NameSnake() string {
-	return casing.Snake(d.Name)
+	return casing.Snake(d.name)
 }
 
-// NamePascal returns the data source name in PascalCase format.
+// NamePascal returns the resource name in PascalCase format.
 func (d *DataSourceInfo) NamePascal() string {
-	return casing.Camel(d.Name)
+	return casing.Camel(d.name)
+}
+
+func (d *DataSourceInfo) MainTypeName() string { return fmt.Sprintf("%sDataSource", d.NamePascal()) }
+
+func (d *DataSourceInfo) OADoc() oas_parser.OADoc {
+	return d.oadoc
+}
+
+func (d *DataSourceInfo) ParentProviderInfo() *ProviderInfo {
+	return d.providerInfo
+}
+
+func (d *DataSourceInfo) ResourceSpec() *provider_spec.ResourceSchema {
+	return &d.resourceSpec
 }
 
 // -------------------------------------------------------------------------------------------------

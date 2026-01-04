@@ -21,6 +21,12 @@ import (
 	"github.com/pb33f/libopenapi/datamodel/high/v3"
 )
 
+// HTTPConfig holds HTTP client configuration
+type HTTPConfig struct {
+	BaseURL string
+	Headers map[string]string
+}
+
 //go:embed oas.json
 var oasFile []byte
 
