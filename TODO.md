@@ -1,0 +1,3 @@
+- [ ] perform an actual live test
+- [ ] support array and object properties
+- [ ] split property logic by create/update and request/response
