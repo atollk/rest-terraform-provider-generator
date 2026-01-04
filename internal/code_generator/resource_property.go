@@ -216,3 +216,67 @@ func (p *augmentedPropertySchema) RenderUpdateDataWithCreateResponse() string {
 	}
 	return fmt.Sprintf(fmtStr, p.Name, casing.LowerCamel(p.Name), casing.Camel(p.Name), p.GetTypeType(), p.GetGoType())
 }
+
+// RenderFillUpdateBody generates code to populate this property in the API request body during resource creation.
+func (p *augmentedPropertySchema) RenderFillUpdateBody() string {
+	switch p.GetTopSchemaType() {
+	case propertyTypeAny:
+		fmtStr := `%[2]sUnpacked, err := UnpackDynamicType(&data.%[3]s, ctx)
+if err != nil {
+  resp.Diagnostics.AddError("cannot unpack data", fmt.Sprintf("cannot unpack data of property '%[1]s' due to error: %%v", err))
+}
+requestBody["%[1]s"] = %[2]sUnpacked`
+		return fmt.Sprintf(fmtStr, p.Name, casing.LowerCamel(p.Name), casing.Camel(p.Name))
+	default:
+		fmtStr := `requestBody["%s"] = data.%s.Value%s()`
+		return fmt.Sprintf(fmtStr, p.Name, casing.Camel(p.Name), p.GetTypeType())
+	}
+}
+
+// RenderUpdateDataWithUpdateResponse generates code to update Terraform state with this property's value from the API response.
+func (p *augmentedPropertySchema) RenderUpdateDataWithUpdateResponse() string {
+	var fmtStr string
+	switch p.GetTopSchemaType() {
+	case propertyTypeAny:
+		fmtStr = `if %[2]sRaw, ok := responseBody["%[1]s"]; ok {
+	if %[2]sValue, err := anyToDynamic(%[2]sRaw); err == nil {
+		data.%[3]s = %[2]sValue
+	} else {
+		resp.Diagnostics.AddError("failure to set data '%[1]s'", err.Error())
+	}
+}`
+	default:
+		fmtStr = `if %[2]sRaw, ok := responseBody["%[1]s"]; ok {
+	if %[2]sValue, ok := %[2]sRaw.(%[5]s); ok {
+		data.%[3]s = types.%[4]sValue(%[2]sValue)
+	} else {
+		resp.Diagnostics.AddError("failure to set data '%[1]s'", "'%[1]s' field is not of the expected type")
+	}
+}`
+	}
+	return fmt.Sprintf(fmtStr, p.Name, casing.LowerCamel(p.Name), casing.Camel(p.Name), p.GetTypeType(), p.GetGoType())
+}
+
+// RenderUpdateDataWithReadResponse generates code to update Terraform state with this property's value from the API response.
+func (p *augmentedPropertySchema) RenderUpdateDataWithReadResponse() string {
+	var fmtStr string
+	switch p.GetTopSchemaType() {
+	case propertyTypeAny:
+		fmtStr = `if %[2]sRaw, ok := responseBody["%[1]s"]; ok {
+	if %[2]sValue, err := anyToDynamic(%[2]sRaw); err == nil {
+		data.%[3]s = %[2]sValue
+	} else {
+		resp.Diagnostics.AddError("failure to set data '%[1]s'", err.Error())
+	}
+}`
+	default:
+		fmtStr = `if %[2]sRaw, ok := responseBody["%[1]s"]; ok {
+	if %[2]sValue, ok := %[2]sRaw.(%[5]s); ok {
+		data.%[3]s = types.%[4]sValue(%[2]sValue)
+	} else {
+		resp.Diagnostics.AddError("failure to set data '%[1]s'", "'%[1]s' field is not of the expected type")
+	}
+}`
+	}
+	return fmt.Sprintf(fmtStr, p.Name, casing.LowerCamel(p.Name), casing.Camel(p.Name), p.GetTypeType(), p.GetGoType())
+}

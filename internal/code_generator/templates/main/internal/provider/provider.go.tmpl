@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/provider/schema"
 	"github.com/hashicorp/terraform-plugin-framework/resource"
 	"github.com/hashicorp/terraform-plugin-framework/types"
-	"github.com/{{.ProviderInfo.Author}}/terraform-provider-{{.ProviderInfo.NameKebab}}/internal/client"
 )
 
 // Ensure Provider satisfies various provider interfaces.
@@ -27,7 +26,7 @@ type Provider struct {
 // ProviderModel describes the provider data model.
 type ProviderModel struct {
 	BaseURL types.String `tfsdk:"base_url"`
-	APIKey  types.String `tfsdk:"api_key"`
+	Headers types.List   `tfsdk:"headers"`
 }
 
 func (p *Provider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
@@ -42,8 +41,9 @@ func (p *Provider) Schema(ctx context.Context, req provider.SchemaRequest, resp 
 				MarkdownDescription: "The base URL for the Petstore API. May also be provided via {{.ProviderInfo.NameCaps}}_BASE_URL environment variable.",
 				Optional:            true,
 			},
-			"api_key": schema.StringAttribute{
-				MarkdownDescription: "The API key for authentication. May also be provided via {{.ProviderInfo.NameCaps}}_API_KEY environment variable.",
+			"headers": schema.MapAttribute{
+				ElementType:         types.StringType,
+				MarkdownDescription: "A collection of headers to be sent with HTTP requests and their value.",
 				Optional:            true,
 				Sensitive:           true,
 			},

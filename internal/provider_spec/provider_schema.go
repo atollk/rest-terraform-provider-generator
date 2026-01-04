@@ -1,56 +1,22 @@
 package provider_spec
 
-import "encoding/json"
-
 type RESTAPIProviderConfiguration struct {
 	GlobalDefaults *GlobalDefaults  `json:"global_defaults,omitempty"`
 	Resources      *ResourcesSchema `json:"resources,omitempty"`
 }
 
 type GlobalDefaults struct {
-	CertFile            string   `json:"cert_file,omitempty"`             // When set with the key_file parameter, the provider will load a client certificate as a file for mTLS authentication.
-	CertString          string   `json:"cert_string,omitempty"`           // When set with the key_string parameter, the provider will load a client certificate as a string for mTLS authentication.
-	CopyKeys            []string `json:"copy_keys,omitempty"`             // When set, any PUT to the API for an object will copy these keys from the data the provider has gathered about the object. This is useful if internal API information must also be provided with updates, such as the revision of the object.
-	CreateMethod        string   `json:"create_method,omitempty"`         // Defaults to POST. The HTTP method used to CREATE objects of this type on the API server.
-	CreateReturnsObject bool     `json:"create_returns_object,omitempty"` // Set this when the API returns the object created only on creation operations (POST). This is used by the provider to refresh internal data structures.
-	Debug               bool     `json:"debug,omitempty"`                 // Enabling this will cause lots of debug information to be printed to STDOUT by the API client.
-	DestroyMethod       string   `json:"destroy_method,omitempty"`        // Defaults to DELETE. The HTTP method used to DELETE objects of this type on the API server.
-	Headers             *struct {
-
+	CreateMethod  string `json:"create_method,omitempty"`  // Defaults to POST. The HTTP method used to CREATE objects of this type on the API server.
+	Debug         bool   `json:"debug,omitempty"`          // Enabling this will cause lots of debug information to be printed to STDOUT by the API client.
+	DestroyMethod string `json:"destroy_method,omitempty"` // Defaults to DELETE. The HTTP method used to DELETE objects of this type on the API server.
+	Headers       *struct {
 		// Additional properties, not valided now
 		OtherProps map[string]string `json:",inline"`
 	} `json:"headers,omitempty"` // A map of header names and values to set on all outbound requests. This is useful if you want to use a script via the 'external' provider or provide a pre-approved token or change Content-Type from application/json. If username and password are set and Authorization is one of the headers defined here, the BASIC auth credentials take precedence.
-	IdAttribute            string `json:"id_attribute,omitempty"` // When set, this key will be used to operate on REST objects. For example, if the ID is set to 'name', changes to the API object will be to http://foo.com/bar/VALUE_OF_NAME. This value may also be a '/'-delimited path to the id attribute if it is multiple levels deep in the data (such as attributes/id in the case of an object { "attributes": { "id": 1234 }, "config": { "name": "foo", "something": "bar" } }
-	Insecure               bool   `json:"insecure,omitempty"`     // When using https, this disables TLS verification of the host.
-	KeyFile                string `json:"key_file,omitempty"`     // When set with the cert_file parameter, the provider will load a client certificate as a file for mTLS authentication. Note that this mechanism simply delegates to golang's tls.LoadX509KeyPair which does not support passphrase protected private keys. The most robust security protections available to the key_file are simple file system permissions.
-	KeyString              string `json:"key_string,omitempty"`   // When set with the cert_string parameter, the provider will load a client certificate as a string for mTLS authentication. Note that this mechanism simply delegates to golang's tls.LoadX509KeyPair which does not support passphrase protected private keys. The most robust security protections available to the key_file are simple file system permissions.
-	OauthClientCredentials []*struct {
-		EndpointParams *struct {
-
-			// Additional properties, not valided now
-			OtherProps map[string]json.RawMessage `json:",inline"`
-		} `json:"endpoint_params,omitempty"` // Additional key/values to pass to the underlying Oauth client library (as EndpointParams)
-		OauthClientId      string   `json:"oauth_client_id,omitempty"`      // The OAuth client ID
-		OauthClientSecret  string   `json:"oauth_client_secret,omitempty"`  // The OAuth client secret
-		OauthScopes        []string `json:"oauth_scopes,omitempty"`         // OAuth scopes to request
-		OauthTokenEndpoint string   `json:"oauth_token_endpoint,omitempty"` // The OAuth token endpoint URL
-
-		// Additional properties, not valided now
-		OtherProps map[string]json.RawMessage `json:",inline"`
-	} `json:"oauth_client_credentials,omitempty"` // Configuration for oauth client credential flow using the https://pkg.go.dev/golang.org/x/oauth2 implementation
-	Password           string      `json:"password,omitempty"`             // When set, will use this password for BASIC auth to the API.
-	RateLimit          json.Number `json:"rate_limit,omitempty"`           // Set this to limit the number of requests per second made to the API.
-	ReadMethod         string      `json:"read_method,omitempty"`          // Defaults to GET. The HTTP method used to READ objects of this type on the API server.
-	RootCaFile         string      `json:"root_ca_file,omitempty"`         // When set, the provider will load a root CA certificate as a file for mTLS authentication. This is useful when the API server is using a self-signed certificate and the client needs to trust it.
-	RootCaString       string      `json:"root_ca_string,omitempty"`       // When set, the provider will load a root CA certificate as a string for mTLS authentication. This is useful when the API server is using a self-signed certificate and the client needs to trust it.
-	TestPath           string      `json:"test_path,omitempty"`            // If set, the provider will issue a read_method request to this path after instantiation requiring a 200 OK response before proceeding. This is useful if your API provides a no-op endpoint that can signal if this provider is configured correctly. Response data will be ignored.
-	Timeout            json.Number `json:"timeout,omitempty"`              // When set, will cause requests taking longer than this time (in seconds) to be aborted.
-	UpdateMethod       string      `json:"update_method,omitempty"`        // Defaults to PUT. The HTTP method used to UPDATE objects of this type on the API server.
-	Uri                string      `json:"uri,omitempty"`                  // URI of the REST API endpoint. This serves as the base of all requests.
-	UseCookies         bool        `json:"use_cookies,omitempty"`          // Enable cookie jar to persist session.
-	Username           string      `json:"username,omitempty"`             // When set, will use this username for BASIC auth to the API.
-	WriteReturnsObject bool        `json:"write_returns_object,omitempty"` // Set this when the API returns the object created on all write operations (POST, PUT). This is used by the provider to refresh internal data structures.
-	XssiPrefix         string      `json:"xssi_prefix,omitempty"`          // Trim the xssi prefix from response string, if present, before parsing.
+	IdAttribute  string `json:"id_attribute,omitempty"`  // When set, this key will be used to operate on REST objects. For example, if the ID is set to 'name', changes to the API object will be to http://foo.com/bar/VALUE_OF_NAME. This value may also be a '/'-delimited path to the id attribute if it is multiple levels deep in the data (such as attributes/id in the case of an object { "attributes": { "id": 1234 }, "config": { "name": "foo", "something": "bar" } }
+	ReadMethod   string `json:"read_method,omitempty"`   // Defaults to GET. The HTTP method used to READ objects of this type on the API server.
+	UpdateMethod string `json:"update_method,omitempty"` // Defaults to PUT. The HTTP method used to UPDATE objects of this type on the API server.
+	Uri          string `json:"uri,omitempty"`           // URI of the REST API endpoint. This serves as the base of all requests.
 }
 
 type ResourcesSchema struct {

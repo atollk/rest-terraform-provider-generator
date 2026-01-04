@@ -210,6 +210,18 @@ func (r *resourceTemplateRenderer) renderForEachProp(f func(*augmentedPropertySc
 	return result.String(), nil
 }
 
+func (r *resourceTemplateRenderer) RenderRequestHeaders() (string, error) {
+	result := &strings.Builder{}
+	headers := r.ProviderInfo.SpecDefaults.Headers
+	if headers != nil {
+		for name, value := range headers.OtherProps {
+			result.WriteString(fmt.Sprintf(`httpReq.Header.Set("%s", "%s")`, name, value))
+			result.WriteRune('\n')
+		}
+	}
+	return result.String(), nil
+}
+
 // RenderModelDataFields generates Go struct field declarations for the Terraform resource model.
 func (r *resourceTemplateRenderer) RenderModelDataFields() (string, error) {
 	return r.renderForEachProp(
@@ -242,6 +254,33 @@ func (r *resourceTemplateRenderer) RenderUpdateDataWithCreateResponse() (string,
 	return r.renderForEachProp(
 		func(prop *augmentedPropertySchema) string {
 			return prop.RenderUpdateDataWithCreateResponse()
+		},
+	)
+}
+
+// RenderFillCreateBody generates code to populate the API request body from Terraform state during resource creation.
+func (r *resourceTemplateRenderer) RenderFillUpdateBody() (string, error) {
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderFillUpdateBody()
+		},
+	)
+}
+
+// RenderUpdateDataWithCreateResponse generates code to update Terraform state from API response data after resource creation.
+func (r *resourceTemplateRenderer) RenderUpdateDataWithUpdateResponse() (string, error) {
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderUpdateDataWithUpdateResponse()
+		},
+	)
+}
+
+// RenderUpdateDataWithReadResponse generates code to update Terraform state from API response data after resource creation.
+func (r *resourceTemplateRenderer) RenderUpdateDataWithReadResponse() (string, error) {
+	return r.renderForEachProp(
+		func(prop *augmentedPropertySchema) string {
+			return prop.RenderUpdateDataWithReadResponse()
 		},
 	)
 }

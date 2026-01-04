@@ -1,9 +1,7 @@
-$schema: "../src/provider_spec/rest_api_provider_schema.json"
+$schema: "../internal/provider_spec/rest_api_provider_schema.json"
 global_defaults:
   uri: "petstore.com"
   id_attribute: "id"
-  create_returns_object: true
-  write_returns_object: true
   create_method: POST
   destroy_method: DELETE
   update_method: PUT

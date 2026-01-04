@@ -30,7 +30,7 @@ func New{{.ResourceInfo.NamePascal}}Resource() resource.Resource {
 // {{.ResourceInfo.NamePascal}}Resource defines the resource implementation.
 type {{.ResourceInfo.NamePascal}}Resource struct {
 	baseURL    string
-	apiKey     string
+	headers    map[string]string
 	httpClient *http.Client
 }
 
@@ -57,7 +57,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Schema(ctx context.Context, req r
 // HTTPConfig holds HTTP client configuration
 type HTTPConfig struct {
 	BaseURL string
-	APIKey  string
+	Headers map[string]string
 }
 
 func (r *{{.ResourceInfo.NamePascal}}Resource) Configure(ctx context.Context, req resource.ConfigureRequest, resp *resource.ConfigureResponse) {
@@ -78,7 +78,7 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Configure(ctx context.Context, re
 	}
 
 	r.baseURL = config.BaseURL
-	r.apiKey = config.APIKey
+	r.headers = config.Headers
 	r.httpClient = &http.Client{
 		Timeout: time.Second * 30,
 	}
@@ -101,9 +101,10 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) doRequest(method, url string, bod
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
-	if r.apiKey != "" {
-		httpReq.Header.Set("api_key", r.apiKey)
+	for headerName, headerValue := range r.headers {
+		httpReq.Header.Set(headerName, headerValue)
 	}
+	{{.RenderRequestHeaders}}
 
 	res, err := r.httpClient.Do(httpReq)
 	if err != nil {
@@ -159,51 +160,6 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Create(ctx context.Context, req r
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
-func (r *{{.ResourceInfo.NamePascal}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
-	var data {{.ResourceInfo.NamePascal}}ResourceModel
-
-	// Read Terraform prior state data into the model
-	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
-
-	if resp.Diagnostics.HasError() {
-		return
-	}
-
-	// Get pet from API
-	pet, err := r.doRequest("{{.GetReadMethod}}", fmt.Sprintf("%s{{.GetReadPath}}", r.baseURL), nil)
-	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read pet, got error: %s", err))
-		return
-	}
-
-	// Update model with fresh data
-	if name, ok := pet["name"].(string); ok {
-		data.Name = types.StringValue(name)
-	}
-	if status, ok := pet["status"].(string); ok {
-		data.Status = types.StringValue(status)
-	}
-
-	// Convert photo URLs
-	if photoURLsIface, ok := pet["photoUrls"].([]interface{}); ok {
-		photoURLs := make([]types.String, len(photoURLsIface))
-		for i, url := range photoURLsIface {
-			if urlStr, ok := url.(string); ok {
-				photoURLs[i] = types.StringValue(urlStr)
-			}
-		}
-		photoURLsList, diags := types.ListValueFrom(ctx, types.StringType, photoURLs)
-		resp.Diagnostics.Append(diags...)
-		if resp.Diagnostics.HasError() {
-			return
-		}
-		data.PhotoURLs = photoURLsList
-	}
-
-	// Save updated data into Terraform state
-	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
-}
-
 func (r *{{.ResourceInfo.NamePascal}}Resource) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) {
 	var data {{.ResourceInfo.NamePascal}}ResourceModel
 
@@ -214,30 +170,21 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Update(ctx context.Context, req r
 		return
 	}
 
-	// Build request body as a map
-	petData := map[string]interface{}{
-		"id":   data.ID.ValueInt64(),
-		"name": data.Name.ValueString(),
-	}
+    // Fill request body
+	requestBody := make(map[string]any)
+	{{.RenderFillUpdateBody}}
 
-	// TODO: fill pet data
-
-	// Update the pet
-	updatedPet, err := r.doRequest("{{.GetUpdateMethod}}", fmt.Sprintf("%s{{.GetUpdatePath}}", r.baseURL), petData)
+	// Send the request
+	responseBody, err := r.doRequest("{{.GetUpdateMethod}}", fmt.Sprintf("%s{{.GetUpdatePath}}", r.baseURL), requestBody)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update pet, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to update resource, got error: %s", err))
 		return
 	}
 
 	// Update model with response data
-	if name, ok := updatedPet["name"].(string); ok {
-		data.Name = types.StringValue(name)
-	}
-	if status, ok := updatedPet["status"].(string); ok {
-		data.Status = types.StringValue(status)
-	}
+	{{.RenderUpdateDataWithUpdateResponse}}
 
-	// Save updated data into Terraform state
+	// Save data into Terraform state
 	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
@@ -251,12 +198,36 @@ func (r *{{.ResourceInfo.NamePascal}}Resource) Delete(ctx context.Context, req r
 		return
 	}
 
-	// Delete the pet
+	// Delete the resource
 	_, err := r.doRequest("{{.GetDestroyMethod}}", fmt.Sprintf("%s{{.GetDestroyPath}}", r.baseURL), nil)
 	if err != nil {
-		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete pet, got error: %s", err))
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to delete resource, got error: %s", err))
 		return
 	}
+}
+
+func (r *{{.ResourceInfo.NamePascal}}Resource) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) {
+	var data {{.ResourceInfo.NamePascal}}ResourceModel
+
+	// Read Terraform prior state data into the model
+	resp.Diagnostics.Append(req.State.Get(ctx, &data)...)
+
+	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	// Get resource from API
+	responseBody, err := r.doRequest("{{.GetReadMethod}}", fmt.Sprintf("%s{{.GetReadPath}}", r.baseURL), nil)
+	if err != nil {
+		resp.Diagnostics.AddError("Client Error", fmt.Sprintf("Unable to read resource, got error: %s", err))
+		return
+	}
+
+	// Update model with response data
+	{{.RenderUpdateDataWithReadResponse}}
+
+	// Save updated data into Terraform state
+	resp.Diagnostics.Append(resp.State.Set(ctx, &data)...)
 }
 
 func (r *{{.ResourceInfo.NamePascal}}Resource) ImportState(ctx context.Context, req resource.ImportStateRequest, resp *resource.ImportStateResponse) {
